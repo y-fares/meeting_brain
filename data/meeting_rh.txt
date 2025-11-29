@@ -1,0 +1,35 @@
+Réunion Ressources Humaines
+
+Date
+
+2025-02-12
+
+Participants
+
+-   DRH : Amina
+-   Recruteur : Julien
+-   Manager Tech : Karim
+-   Manager Support : Elsa
+-   Yacine
+
+Points discutés
+
+-   Retards dans les recrutements backend.
+-   Augmentation du turnover dans l’équipe Support.
+-   Demande d’un nouveau process d’onboarding.
+-   Discussion sur la mise en place d’un programme de formation interne.
+-   Nouvelles obligations légales sur le télétravail.
+
+Décisions
+
+-   Prioriser le recrutement backend avec un process accéléré.
+-   Construire un onboarding standardisé pour toutes les équipes.
+-   Lancer un pilote pour le programme de formation interne.
+
+Actions
+
+-   Julien : publier les nouvelles offres backend + screening accéléré.
+-   Elsa : fournir une liste des points de friction dans le Support.
+-   Amina : écrire le premier draft du nouveau process onboarding.
+-   Karim : identifier 2 mentors tech pour le programme de formation.
+-   Yacine : préparer un tableau de suivi RH pour les managers.

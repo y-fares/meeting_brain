@@ -1,0 +1,28 @@
+Réunion Produit – Application Mobile
+
+Date
+
+2025-02-05
+
+Participants
+
+-   Laura
+-   Mehdi
+-   Yacine
+
+Points discutés
+
+-   Problème UX sur le formulaire d’inscription.
+-   Nouveaux retours utilisateurs sur la lenteur du dashboard.
+-   Besoin d’un audit rapide de performance.
+
+Décisions
+
+-   Simplifier le formulaire : enlever 2 champs non essentiels.
+-   Audit backend obligatoire avant la fin de semaine.
+
+Actions
+
+-   Laura : proposer une nouvelle maquette.
+-   Mehdi : faire un audit backend + rapport.
+-   Yacine : valider les maquettes et mettre à jour la roadmap.

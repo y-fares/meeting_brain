@@ -1,0 +1,34 @@
+Réunion Comité de Direction
+
+Date
+
+2025-02-10
+
+Participants
+
+-   CEO : Nadia
+-   COO : Thomas
+-   CTO : Karim
+-   CFO : Isabelle
+-   CPO : Yacine
+
+Points discutés
+
+-   Objectifs Q2 en retard sur le pipeline commercial.
+-   Problème de churn client plus élevé que prévu.
+-   CTO signale que deux incidents critiques ont impacté la prod.
+-   CFO estime que le budget cloud doit être revu à la baisse.
+-   Discussion sur l’ouverture d’un nouveau marché (Espagne).
+
+Décisions
+
+-   Mise en place d’un plan anti-churn sous 10 jours.
+-   Lancement d’un audit complet des coûts cloud.
+-   Validation de l’étude de marché Espagne.
+
+Actions
+
+-   Isabelle : préparer un rapport détaillé des coûts cloud.
+-   Karim : documenter les incidents et plan d’action stabilité.
+-   Yacine : créer le backlog de l’étude du marché Espagne.
+-   Thomas : rencontrer l’équipe Sales pour analyse pipeline.

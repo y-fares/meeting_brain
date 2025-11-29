@@ -1,0 +1,29 @@
+Réunion Projet Migration Serveur
+
+Date
+
+2025-01-28
+
+Participants
+
+-   Karim
+-   Sarah
+-   Yacine
+
+Points discutés
+
+-   Migration serveur repoussée à cause d’un bug réseau.
+-   Karim doit valider le plan de rollback.
+-   Sarah attend les accès VPN du service IT.
+-   Besoin de définir une nouvelle date limite.
+
+Décisions
+
+-   Nouveau test de charge prévu vendredi.
+-   Mise en production replanifiée pour le 10 février.
+
+Actions
+
+-   Karim : envoyer le plan de rollback d’ici demain.
+-   Sarah : vérifier les accès VPN et confirmer au groupe.
+-   Yacine : mettre à jour le planning global dans Trello.
