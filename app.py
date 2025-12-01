@@ -1,30 +1,4 @@
 """
-<<<<<<< Updated upstream
-Meeting Brain - Sprint 1: Text Ingestion
-A Streamlit app for ingesting and previewing raw meeting notes.
-"""
-
-import streamlit as st
-
-
-def get_text_statistics(text: str) -> dict:
-    """
-    Calculate basic statistics about the input text.
-    
-    Args:
-        text: The input text string
-        
-    Returns:
-        A dictionary containing character count and line count
-    """
-    return {
-        "characters": len(text),
-        "lines": len(text.splitlines())
-    }
-
-
-def get_user_input() -> str:
-=======
 Meeting Brain - Sprint 1: Text Ingestion, Preprocessing, and LLM Insights
 """
 
@@ -49,7 +23,8 @@ LOGGER = logging.getLogger(__name__)
 
 load_dotenv()
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL","gemini-1.5-flash")
+# Default Gemini model can be overridden via GEMINI_MODEL in .env
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.5-flash")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if GEMINI_API_KEY:
@@ -224,7 +199,6 @@ def compute_text_analysis(clean_text: str) -> Dict[str, Any]:
 
 
 def generate_summary(meeting_text: str) -> str:
->>>>>>> Stashed changes
     """
     Use Gemini to produce a concise Markdown summary of the meeting.
 
@@ -353,23 +327,6 @@ def get_user_input() -> str:
     )
 
 
-<<<<<<< Updated upstream
-def display_preview(text: str) -> None:
-    """
-    Display the raw meeting notes in a preview section with statistics.
-    
-    Args:
-        text: The text to display in the preview
-    """
-    st.subheader("Raw meeting notes")
-    
-    # Display the raw text
-    st.text(text)
-    
-    # Calculate and display statistics
-    stats = get_text_statistics(text)
-    st.caption(f"Characters: {stats['characters']} | Lines: {stats['lines']}")
-=======
 def display_preprocessing_results(
     raw_text: str, clean_text: str, details: Dict[str, Any]
 ) -> None:
@@ -427,7 +384,6 @@ def display_preprocessing_results(
             [f"{word} ({count})" for word, count in details["top_words"]]
         )
         st.text(top_words_text)
->>>>>>> Stashed changes
 
 
 def display_llm_results(
@@ -468,32 +424,6 @@ def display_llm_results(
 def main():
     """Main entry point for the Streamlit UI."""
     st.title("Meeting Brain - Sprint 1")
-<<<<<<< Updated upstream
-    
-    # Display description at the top
-    st.markdown("""
-    **Step 1: Text Ingestion**
-    
-    This is the first step of Meeting Brain. Paste your raw meeting notes below 
-    to begin the analysis process. The app will capture and preview your notes 
-    for validation.
-    """)
-    
-    # Get user input
-    meeting_notes = get_user_input()
-    
-    # Add analyze button
-    if st.button("Analyze meeting"):
-        # Validate input
-        if not meeting_notes or meeting_notes.strip() == "":
-            st.warning("Please paste some meeting notes before analyzing.")
-        else:
-            # Show success message
-            st.success("Meeting notes successfully captured.")
-            
-            # Display preview
-            display_preview(meeting_notes)
-=======
     st.markdown(
         """
         **Step 1: Text Ingestion** | **Step 2: NLP Preprocessing** | **Step 3: LLM Insights**
@@ -526,7 +456,6 @@ def main():
         todos = extract_todos(clean_text)
 
         display_llm_results(summary, decisions, todos)
->>>>>>> Stashed changes
 
 
 if __name__ == "__main__":
