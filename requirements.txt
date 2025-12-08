@@ -1,0 +1,24 @@
+# Meeting Brain - Project Dependencies
+# Install with: pip install -r requirements.txt
+
+# Web framework and UI
+streamlit>=1.28.0
+
+# Data manipulation and analysis
+pandas>=2.0.0
+
+# Natural Language Processing
+nltk>=3.8.0
+
+# Google Gemini AI for content extraction
+google-generativeai>=0.3.0
+
+# Database ORM (SQLite)
+sqlalchemy>=2.0.0
+
+# HTTP requests (for Trello API integration)
+requests>=2.31.0
+
+# Environment variables management (.env file)
+python-dotenv>=1.0.0
+
