@@ -16,17 +16,25 @@
 - **Historique complet** : Consultation de toutes les réunions passées
 - **Gestion des TODOs** : Suivi des actions avec statuts (pending, in_progress, completed)
 
-### 🔗 Intégration Trello
-- **Création automatique de cartes** : Conversion des TODOs en cartes Trello
-- **Liaison bidirectionnelle** : Chaque TODO peut être lié à une carte Trello
-- **Gestion des statuts** : Mise à jour des statuts des TODOs directement depuis l'interface
+### 🔗 Intégrations Externes
+- **Intégration Trello** (optionnel) :
+  - Création automatique de cartes : Conversion des TODOs en cartes Trello
+  - Liaison bidirectionnelle : Chaque TODO peut être lié à une carte Trello
+  - Gestion des statuts : Mise à jour des statuts des TODOs directement depuis l'interface
+  
+- **Intégration Notion** (optionnel) :
+  - Création automatique de pages : Conversion des TODOs en pages Notion
+  - Mapping dynamique : Adaptation automatique aux propriétés de votre base de données Notion
+  - Support multi-langue : Compatible avec les bases de données en français et en anglais
+  - Liaison bidirectionnelle : Chaque TODO peut être lié à une page Notion
 
 ## 🚀 Installation
 
 ### Prérequis
 - Python 3.8 ou supérieur
 - Compte Google (pour l'API Gemini)
-- Compte Trello (optionnel, pour l'intégration)
+- Compte Trello (optionnel, pour l'intégration Trello)
+- Compte Notion (optionnel, pour l'intégration Notion)
 
 ### Étapes d'installation
 
@@ -64,6 +72,10 @@
    TRELLO_API_KEY=your_trello_api_key
    TRELLO_API_TOKEN=your_trello_api_token
    TRELLO_LIST_ID=your_trello_list_id
+   
+   # Notion API (optionnel)
+   NOTION_API_KEY=your_notion_api_key
+   NOTION_DATABASE_ID=your_notion_database_id
    ```
 
 ### Obtenir les clés API
@@ -79,6 +91,20 @@
 3. Générer un token (lien fourni sur la même page)
 4. Obtenir l'ID de la liste Trello où créer les cartes
 5. Ajouter ces valeurs dans votre fichier `.env`
+
+#### Notion API (optionnel)
+1. Aller sur [Notion Integrations](https://www.notion.so/my-integrations)
+2. Créer une nouvelle intégration (ou utiliser une existante)
+3. Copier le "Internal Integration Token" (commence par `ntn_`)
+4. Créer ou sélectionner une base de données dans Notion
+5. Partager la base de données avec votre intégration :
+   - Ouvrir la base de données dans Notion
+   - Cliquer sur "..." (trois points) → "Connexions" ou "Add connections"
+   - Sélectionner votre intégration
+6. Obtenir l'ID de la base de données :
+   - L'ID est la chaîne de 32 caractères hexadécimaux dans l'URL
+   - Format : `https://www.notion.so/[workspace]/[32-char-id]?v=...`
+7. Ajouter `NOTION_API_KEY` et `NOTION_DATABASE_ID` dans votre fichier `.env`
 
 ## 📖 Utilisation
 
@@ -109,13 +135,13 @@ L'application s'ouvrira automatiquement dans votre navigateur à l'adresse `http
    - Naviguer vers la page "All TODOs"
    - Voir tous les TODOs de toutes les réunions
    - Mettre à jour les statuts (acknowledged, done)
-   - Créer des cartes Trello pour les TODOs
+   - Créer des cartes Trello ou des pages Notion pour les TODOs
 
-4. **Intégration Trello**
-   - Sélectionner un TODO dans la vue "All TODOs"
-   - Cliquer sur "Push to Trello"
-   - La carte sera créée dans votre liste Trello configurée
-   - Le TODO sera automatiquement lié à la carte
+4. **Intégrations externes**
+   - **Trello** : Sélectionner un TODO et cliquer sur "Push to Trello" pour créer une carte
+   - **Notion** : Sélectionner un TODO et cliquer sur "Push to Notion" pour créer une page
+   - Les TODOs seront automatiquement liés aux cartes/pages créées
+   - Le mapping des propriétés s'adapte automatiquement à votre base de données Notion
 
 ## 📁 Structure du Projet
 
@@ -134,7 +160,8 @@ PSTB_Project/
 │   ├── history.py              # Vue historique des réunions
 │   └── todos.py                # Vue gestion des TODOs
 └── integrations/               # Intégrations externes
-    └── trello_client.py        # Client Trello API
+    ├── trello_client.py        # Client Trello API
+    └── notion_client.py        # Client Notion API
 ```
 
 ## 🛠️ Technologies Utilisées
@@ -144,6 +171,7 @@ PSTB_Project/
 - **NLTK** : Bibliothèque de traitement du langage naturel
 - **SQLAlchemy** : ORM pour la gestion de la base de données
 - **Pandas** : Manipulation et analyse de données
+- **Notion Client** : Client Python pour l'API Notion
 - **Requests** : Client HTTP pour l'API Trello
 - **Python-dotenv** : Gestion des variables d'environnement
 
@@ -163,6 +191,7 @@ PSTB_Project/
 - `due_date` : Date d'échéance
 - `status` : Statut (pending, in_progress, completed)
 - `trello_card_id` : ID de la carte Trello liée (optionnel)
+- `notion_page_id` : ID de la page Notion liée (optionnel)
 - `created_at`, `acknowledged_at`, `completed_at` : Timestamps
 
 ### Decision
@@ -204,6 +233,16 @@ rm meeting_brain.db
 ### Erreur lors de la création de carte Trello
 - Vérifiez que toutes les variables Trello sont configurées dans `.env`
 - Vérifiez que `TRELLO_LIST_ID` correspond à une liste existante dans votre tableau Trello
+- Consultez les logs pour plus de détails
+
+### Erreur lors de la création de page Notion
+- Vérifiez que `NOTION_API_KEY` et `NOTION_DATABASE_ID` sont configurés dans `.env`
+- Vérifiez que la base de données Notion est partagée avec votre intégration
+- Vérifiez que votre intégration a les permissions "Read content", "Insert content" et "Update content"
+- Utilisez le script `test_notion_connection.py` pour tester la connexion :
+  ```bash
+  python test_notion_connection.py
+  ```
 - Consultez les logs pour plus de détails
 
 ### Problèmes avec NLTK

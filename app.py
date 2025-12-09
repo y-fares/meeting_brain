@@ -14,6 +14,7 @@ import logging
 import os
 import re
 from collections import Counter
+from datetime import datetime
 from typing import Any, Dict, List
 
 import google.generativeai as genai
@@ -23,6 +24,14 @@ import streamlit as st
 from dotenv import load_dotenv
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
+
+from database import (
+    create_session,
+    create_meeting,
+    add_decisions,
+    add_todos,
+    add_participants,
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -266,6 +275,67 @@ def extract_decisions(clean_text: str) -> List[str]:
         return []
 
 
+def extract_participants_heuristic(raw_text: str, todos: List[Dict[str, str]]) -> List[str]:
+    """
+    Extract participants heuristically from meeting text.
+    
+    Looks for:
+    1. A "Participants" section in the text
+    2. Names mentioned in todo owners
+    
+    Args:
+        raw_text: The raw meeting text
+        todos: List of todos (may contain owner names)
+    
+    Returns:
+        A list of unique participant names
+    """
+    participants = set()
+    
+    # Extract from "Participants" section
+    # Look for patterns like "Participants:", "Participants :", etc.
+    participants_pattern = re.compile(
+        r'(?:participants?|participants?)[\s:]*\n(?:[-•*]\s*)?([^\n]+)',
+        re.IGNORECASE | re.MULTILINE
+    )
+    
+    # Also look for lines that start with participant indicators
+    lines = raw_text.split('\n')
+    in_participants_section = False
+    
+    for line in lines:
+        line_lower = line.lower().strip()
+        
+        # Detect start of participants section
+        if 'participant' in line_lower and ':' in line_lower:
+            in_participants_section = True
+            continue
+        
+        # If in participants section, extract names
+        if in_participants_section:
+            # Stop if we hit another section (like "Points", "Decisions", "Actions")
+            if any(keyword in line_lower for keyword in ['points', 'décisions', 'decisions', 'actions', 'todos', 'summary']):
+                in_participants_section = False
+                continue
+            
+            # Extract name from bullet point or plain line
+            name_match = re.match(r'[-•*]\s*(.+?)(?:\s*:|\s*$)', line.strip())
+            if name_match:
+                name = name_match.group(1).strip()
+                # Clean up common prefixes like "DRH :", "Manager :", etc.
+                name = re.sub(r'^[^:]+:\s*', '', name)
+                if name and len(name) > 1:
+                    participants.add(name)
+    
+    # Extract from todo owners
+    for todo in todos:
+        owner = todo.get("owner", "").strip()
+        if owner and len(owner) > 1:
+            participants.add(owner)
+    
+    return sorted(list(participants))
+
+
 def extract_todos(clean_text: str) -> List[Dict[str, str]]:
     """
     Extract action items (TODOs) from meeting notes using Gemini.
@@ -448,9 +518,25 @@ def display_llm_results(
 
 def main() -> None:
     """Main entry point for the Streamlit UI."""
-    st.set_page_config(page_title="Meeting Brain - Sprint 1", layout="wide")
-    st.title("Meeting Brain - Sprint 1")
-
+    st.set_page_config(page_title="Meeting Brain", layout="wide")
+    
+    # Sidebar navigation
+    mode = st.sidebar.radio("Navigation", ["Analyze meeting", "History", "All TODOs"])
+    
+    # Route to appropriate view
+    if mode == "History":
+        from views.history import render_history_view
+        render_history_view()
+        return
+    
+    if mode == "All TODOs":
+        from views.todos import render_todos_view
+        render_todos_view()
+        return
+    
+    # Default: Analyze Meeting mode
+    st.title("Meeting Brain")
+    
     st.markdown(
         """
         **Step 1: Text Ingestion** | **Step 2: NLP Preprocessing** | **Step 3: LLM Insights** | **Step 4: Results**
@@ -499,6 +585,42 @@ def main() -> None:
 
         # Display LLM results
         display_llm_results(summary, decisions, todos)
+        
+        # Save results to database
+        try:
+            session = create_session()
+            
+            # Extract participants heuristically
+            participants = extract_participants_heuristic(meeting_notes, todos)
+            
+            # Create meeting record
+            meeting_id = create_meeting(
+                session=session,
+                raw_text=meeting_notes,
+                summary=summary,
+                title=None,  # Could be extracted from text if needed
+                date=datetime.now()  # Could be extracted from text if needed
+            )
+            
+            # Add decisions
+            if decisions:
+                add_decisions(session, meeting_id, decisions)
+            
+            # Add todos
+            if todos:
+                add_todos(session, meeting_id, todos)
+            
+            # Add participants
+            if participants:
+                add_participants(session, meeting_id, participants)
+            
+            st.success(f"Meeting saved to database (ID: {meeting_id})")
+            LOGGER.info("Successfully saved meeting %d to database", meeting_id)
+            
+        except Exception as db_exc:
+            session.rollback()
+            LOGGER.error("Error while saving meeting to database: %s", db_exc)
+            st.warning("Meeting analysis completed, but failed to save to database. Check logs for details.")
 
 
 if __name__ == "__main__":
