@@ -62,7 +62,7 @@ def render_kanban_view() -> None:
                             })
                         
                         df_cards = pd.DataFrame(cards_data)
-                        st.dataframe(df_cards, use_container_width=True, hide_index=True)
+                        st.dataframe(df_cards, width='stretch', hide_index=True)
                     else:
                         st.info("No cards in this column.")
                     
@@ -95,7 +95,7 @@ def render_kanban_view() -> None:
                     })
                 
                 df_todos = pd.DataFrame(todos_data)
-                st.dataframe(df_todos, use_container_width=True, hide_index=True)
+                st.dataframe(df_todos, width='stretch', hide_index=True)
         
         st.divider()
         
@@ -107,7 +107,7 @@ def render_kanban_view() -> None:
         updated = False
         
         with sync_col1:
-            if st.button("📥 Sync from Notion → DB", type="primary", use_container_width=True):
+            if st.button("📥 Sync from Notion → DB", type="primary"):
                 try:
                     with st.spinner("Syncing from Notion..."):
                         updated_count = sync_from_notion(session)
@@ -121,7 +121,7 @@ def render_kanban_view() -> None:
                     st.exception(exc)
         
         with sync_col2:
-            if st.button("📤 Sync from DB → Notion", type="primary", use_container_width=True):
+            if st.button("📤 Sync from DB → Notion", type="primary"):
                 try:
                     with st.spinner("Syncing to Notion..."):
                         updated_count = sync_to_notion(session)
@@ -135,7 +135,7 @@ def render_kanban_view() -> None:
                     st.exception(exc)
         
         with sync_col3:
-            if st.button("🔄 Full Sync (Notion ↔ DB)", type="secondary", use_container_width=True):
+            if st.button("🔄 Full Sync (Notion ↔ DB)", type="secondary"):
                 try:
                     with st.spinner("Performing full sync..."):
                         updated_from = sync_from_notion(session)
