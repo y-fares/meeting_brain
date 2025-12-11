@@ -448,9 +448,42 @@ def display_llm_results(
 
 def main() -> None:
     """Main entry point for the Streamlit UI."""
-    st.set_page_config(page_title="Meeting Brain - Sprint 1", layout="wide")
-    st.title("Meeting Brain - Sprint 1")
-
+    st.set_page_config(page_title="Meeting Brain", layout="wide")
+    
+    # Sidebar navigation
+    st.sidebar.title("🧠 Meeting Brain")
+    st.sidebar.markdown("---")
+    
+    # Navigation menu - using radio for better visibility
+    st.sidebar.markdown("### 📋 Navigation")
+    page = st.sidebar.radio(
+        "Choisir une page",
+        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync"],
+        label_visibility="visible",
+        index=0
+    )
+    
+    st.sidebar.markdown("---")
+    
+    # Route to appropriate view
+    if page == "History":
+        from views.history import render_history_view
+        render_history_view()
+        return
+    
+    if page == "All TODOs":
+        from views.todos import render_todos_view
+        render_todos_view()
+        return
+    
+    if page == "Kanban Sync":
+        from views.kanban import render_kanban_view
+        render_kanban_view()
+        return
+    
+    # Default: Analyze Meeting mode
+    st.title("Meeting Brain")
+    
     st.markdown(
         """
         **Step 1: Text Ingestion** | **Step 2: NLP Preprocessing** | **Step 3: LLM Insights** | **Step 4: Results**
@@ -499,6 +532,46 @@ def main() -> None:
 
         # Display LLM results
         display_llm_results(summary, decisions, todos)
+        
+        # Save results to database
+        try:
+            from database import create_session, create_meeting, add_decisions, add_todos, add_participants
+            from datetime import datetime
+            
+            session = create_session()
+            
+            # Extract participants from todos owners
+            participants = list(set([todo.get("owner", "") for todo in todos if todo.get("owner")]))
+            
+            # Create meeting record
+            meeting_id = create_meeting(
+                session=session,
+                raw_text=meeting_notes,
+                summary=summary,
+                title=None,
+                date=datetime.now()
+            )
+            
+            # Add decisions
+            if decisions:
+                add_decisions(session, meeting_id, decisions)
+            
+            # Add todos
+            if todos:
+                add_todos(session, meeting_id, todos)
+            
+            # Add participants
+            if participants:
+                add_participants(session, meeting_id, participants)
+            
+            st.success(f"Meeting saved to database (ID: {meeting_id})")
+            LOGGER.info("Successfully saved meeting %d to database", meeting_id)
+            
+        except Exception as db_exc:
+            if 'session' in locals():
+                session.rollback()
+            LOGGER.error("Error while saving meeting to database: %s", db_exc)
+            st.warning("Meeting analysis completed, but failed to save to database. Check logs for details.")
 
 
 if __name__ == "__main__":
