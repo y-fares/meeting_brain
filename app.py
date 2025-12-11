@@ -477,7 +477,7 @@ def main() -> None:
     st.sidebar.markdown("### 📋 Navigation")
     page = st.sidebar.radio(
         "Choisir une page",
-        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync"],
+        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync", "Q&A"],
         label_visibility="visible",
         index=0
     )
@@ -498,6 +498,11 @@ def main() -> None:
     if page == "Kanban Sync":
         from views.kanban import render_kanban_view
         render_kanban_view()
+        return
+    
+    if page == "Q&A":
+        from views.qa import render_qa_view
+        render_qa_view()
         return
     
     # Default: Analyze Meeting mode
