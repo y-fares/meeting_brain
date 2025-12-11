@@ -66,7 +66,7 @@
    ```env
    # Groq API (requis)
    GROQ_API_KEY=your_groq_api_key_here
-   GROQ_MODEL=llama-3.1-70b-versatile
+   GROQ_MODEL=llama-3.1-8b-instant
    
    # Trello API (optionnel)
    TRELLO_API_KEY=your_trello_api_key
@@ -211,10 +211,11 @@ PSTB_Project/
 
 Dans votre fichier `.env`, vous pouvez spécifier un modèle différent :
 ```env
-GROQ_MODEL=llama-3.1-70b-versatile
+GROQ_MODEL=llama-3.1-8b-instant
 # Autres modèles disponibles :
+# GROQ_MODEL=llama-3-70b-8192
 # GROQ_MODEL=mixtral-8x7b-32768
-# GROQ_MODEL=llama-3.1-8b-instant
+# GROQ_MODEL=llama-3-8b-8192
 ```
 
 ### Base de données

@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 # Configure Groq API
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
