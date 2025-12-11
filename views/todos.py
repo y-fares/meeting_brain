@@ -93,7 +93,7 @@ def render_todos_view() -> None:
         updated = False
         
         with col1:
-            if st.button("Mark as acknowledged", type="primary", use_container_width=True):
+            if st.button("Mark as acknowledged", type="primary"):
                 try:
                     acknowledge_todo(session, selected_id)
                     st.success(f"✅ TODO #{selected_id} marked as acknowledged (in progress).")
@@ -102,7 +102,7 @@ def render_todos_view() -> None:
                     st.error(f"❌ Error acknowledging TODO: {exc}")
         
         with col2:
-            if st.button("Mark as done", type="primary", use_container_width=True):
+            if st.button("Mark as done", type="primary"):
                 try:
                     complete_todo(session, selected_id)
                     st.success(f"✅ TODO #{selected_id} marked as done.")
@@ -115,9 +115,9 @@ def render_todos_view() -> None:
             if selected_todo and selected_meeting:
                 if selected_todo.notion_page_id:
                     st.info("This TODO is already linked to Notion.")
-                    st.button("Push to Notion", disabled=True, use_container_width=True)
+                    st.button("Push to Notion", disabled=True)
                 else:
-                    if st.button("Push to Notion", type="primary", use_container_width=True):
+                    if st.button("Push to Notion", type="primary"):
                         try:
                             page_id = push_todo_to_notion(selected_todo, selected_meeting)
                             if page_id:
@@ -129,7 +129,7 @@ def render_todos_view() -> None:
                         except Exception as exc:
                             st.error(f"❌ Error pushing to Notion: {exc}")
             else:
-                st.button("Push to Notion", disabled=True, use_container_width=True)
+                st.button("Push to Notion", disabled=True)
         
         st.divider()
         
@@ -140,7 +140,7 @@ def render_todos_view() -> None:
         sync_col1, sync_col2 = st.columns(2)
         
         with sync_col1:
-            if st.button("📥 Sync from Notion", type="secondary", use_container_width=True):
+            if st.button("📥 Sync from Notion", type="secondary"):
                 try:
                     with st.spinner("Syncing from Notion..."):
                         updated_count = sync_from_notion(session)
@@ -154,7 +154,7 @@ def render_todos_view() -> None:
                     st.exception(exc)
         
         with sync_col2:
-            if st.button("📤 Sync to Notion", type="secondary", use_container_width=True):
+            if st.button("📤 Sync to Notion", type="secondary"):
                 try:
                     with st.spinner("Syncing to Notion..."):
                         updated_count = sync_to_notion(session)

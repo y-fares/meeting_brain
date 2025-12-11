@@ -1,12 +1,12 @@
 # Meeting Brain 🧠
 
-**Meeting Brain** est une application web intelligente qui analyse automatiquement les notes de réunion en utilisant le traitement du langage naturel (NLP) et l'intelligence artificielle (Google Gemini) pour extraire les informations clés : résumés, décisions et actions (TODOs).
+**Meeting Brain** est une application web intelligente qui analyse automatiquement les notes de réunion en utilisant le traitement du langage naturel (NLP) et l'intelligence artificielle (Groq) pour extraire les informations clés : résumés, décisions et actions (TODOs).
 
 ## ✨ Fonctionnalités
 
 ### 🎯 Analyse Automatique des Réunions
 - **Préprocessing NLP** : Nettoyage et analyse statistique du texte
-- **Extraction par IA** : Utilisation de Google Gemini pour extraire :
+- **Extraction par IA** : Utilisation de Groq pour extraire :
   - Résumés de réunion
   - Décisions prises
   - Actions/TODOs avec propriétaires et dates d'échéance
@@ -32,7 +32,7 @@
 
 ### Prérequis
 - Python 3.8 ou supérieur
-- Compte Google (pour l'API Gemini)
+- Compte Groq (pour l'API Groq)
 - Compte Trello (optionnel, pour l'intégration Trello)
 - Compte Notion (optionnel, pour l'intégration Notion)
 
@@ -64,9 +64,9 @@
    
    Créer un fichier `.env` à la racine du projet :
    ```env
-   # Google Gemini API (requis)
-   GOOGLE_API_KEY=your_google_api_key_here
-   GEMINI_MODEL=gemini-pro
+   # Groq API (requis)
+   GROQ_API_KEY=your_groq_api_key_here
+   GROQ_MODEL=llama-3.1-8b-instant
    
    # Trello API (optionnel)
    TRELLO_API_KEY=your_trello_api_key
@@ -80,10 +80,11 @@
 
 ### Obtenir les clés API
 
-#### Google Gemini API
-1. Aller sur [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Créer une nouvelle clé API
-3. Copier la clé dans votre fichier `.env`
+#### Groq API
+1. Aller sur [Groq Console](https://console.groq.com/)
+2. Créer un compte ou se connecter
+3. Générer une clé API dans la section "API Keys"
+4. Copier la clé dans votre fichier `.env`
 
 #### Trello API (optionnel)
 1. Aller sur [Trello Developer API Keys](https://trello.com/app-key)
@@ -123,7 +124,7 @@ L'application s'ouvrira automatiquement dans votre navigateur à l'adresse `http
    - Cliquer sur "Analyze meeting"
    - L'application va :
      - Préprocesser le texte (statistiques NLP)
-     - Extraire le résumé, les décisions et les TODOs via Gemini
+     - Extraire le résumé, les décisions et les TODOs via Groq
      - Afficher les résultats
 
 2. **Consulter l'historique**
@@ -167,7 +168,7 @@ PSTB_Project/
 ## 🛠️ Technologies Utilisées
 
 - **Streamlit** : Framework web pour l'interface utilisateur
-- **Google Gemini AI** : Modèle de langage pour l'extraction d'informations
+- **Groq** : Modèle de langage pour l'extraction d'informations
 - **NLTK** : Bibliothèque de traitement du langage naturel
 - **SQLAlchemy** : ORM pour la gestion de la base de données
 - **Pandas** : Manipulation et analyse de données
@@ -206,13 +207,15 @@ PSTB_Project/
 
 ## 🔧 Configuration Avancée
 
-### Personnaliser le modèle Gemini
+### Personnaliser le modèle Groq
 
 Dans votre fichier `.env`, vous pouvez spécifier un modèle différent :
 ```env
-GEMINI_MODEL=gemini-pro
-# ou
-GEMINI_MODEL=gemini-1.5-pro
+GROQ_MODEL=llama-3.1-8b-instant
+# Autres modèles disponibles :
+# GROQ_MODEL=llama-3-70b-8192
+# GROQ_MODEL=mixtral-8x7b-32768
+# GROQ_MODEL=llama-3-8b-8192
 ```
 
 ### Base de données
@@ -226,9 +229,10 @@ rm meeting_brain.db
 
 ## 🐛 Dépannage
 
-### Erreur "GOOGLE_API_KEY not set"
-- Vérifiez que votre fichier `.env` existe et contient `GOOGLE_API_KEY`
+### Erreur "GROQ_API_KEY not set"
+- Vérifiez que votre fichier `.env` existe et contient `GROQ_API_KEY`
 - Assurez-vous que le fichier `.env` est à la racine du projet
+- Obtenez votre clé API sur [Groq Console](https://console.groq.com/)
 
 ### Erreur lors de la création de carte Trello
 - Vérifiez que toutes les variables Trello sont configurées dans `.env`

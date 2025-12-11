@@ -1,11 +1,11 @@
 """
 Meeting Brain - Sprint 1
-A Streamlit app for analyzing meeting notes with NLP preprocessing and Gemini LLM.
+A Streamlit app for analyzing meeting notes with NLP preprocessing and Groq LLM.
 
 Features:
     1. Text ingestion
     2. NLP preprocessing & statistics
-    3. LLM summary/decisions/todos extraction (Gemini)
+    3. LLM summary/decisions/todos extraction (Groq)
     4. Result UI display
 """
 
@@ -16,7 +16,7 @@ import re
 from collections import Counter
 from typing import Any, Dict, List
 
-import google.generativeai as genai
+from groq import Groq
 import nltk
 import pandas as pd
 import streamlit as st
@@ -28,19 +28,20 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 load_dotenv()
 
 # ---------------------------------------------------------------------------
-# Logging & Gemini client setup
+# Logging & Groq client setup
 # ---------------------------------------------------------------------------
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
-# Configure Gemini API
-GEMINI_MODEL = os.getenv("GEMINI_MODEL")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
+# Configure Groq API
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if GROQ_API_KEY:
+    groq_client = Groq(api_key=GROQ_API_KEY)
 else:
-    LOGGER.warning("GOOGLE_API_KEY environment variable is not set.")
+    groq_client = None
+    LOGGER.warning("GROQ_API_KEY environment variable is not set.")
 
 # ---------------------------------------------------------------------------
 # NLTK resource preparation
@@ -171,13 +172,13 @@ def preprocess_text(raw_text: str) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Feature 3: LLM functions (Gemini)
+# Feature 3: LLM functions (Groq)
 # ---------------------------------------------------------------------------
 
 
 def generate_summary(clean_text: str) -> str:
     """
-    Generate a concise summary (5-10 lines) using Gemini.
+    Generate a concise summary (5-10 lines) using Groq.
 
     Args:
         clean_text: The cleaned/preprocessed meeting text
@@ -188,12 +189,11 @@ def generate_summary(clean_text: str) -> str:
     if not clean_text or not clean_text.strip():
         return ""
 
-    if not GOOGLE_API_KEY:
-        LOGGER.error("GOOGLE_API_KEY environment variable is not set")
+    if not GROQ_API_KEY or not groq_client:
+        LOGGER.error("GROQ_API_KEY environment variable is not set")
         return ""
 
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
         prompt = (
             "You are a meeting summarization assistant. "
             "Generate a concise, faithful summary (5-10 lines) in Markdown format. "
@@ -201,8 +201,15 @@ def generate_summary(clean_text: str) -> str:
             f"Meeting notes:\n{clean_text}"
         )
 
-        response = model.generate_content(prompt)
-        summary = response.text.strip() if hasattr(response, "text") and response.text else ""
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+        )
+        
+        summary = response.choices[0].message.content.strip() if response.choices else ""
         return summary
 
     except Exception as exc:
@@ -212,7 +219,7 @@ def generate_summary(clean_text: str) -> str:
 
 def extract_decisions(clean_text: str) -> List[str]:
     """
-    Extract decisions from meeting notes using Gemini.
+    Extract decisions from meeting notes using Groq.
 
     Args:
         clean_text: The cleaned/preprocessed meeting text
@@ -223,12 +230,11 @@ def extract_decisions(clean_text: str) -> List[str]:
     if not clean_text or not clean_text.strip():
         return []
 
-    if not GOOGLE_API_KEY:
-        LOGGER.error("GOOGLE_API_KEY environment variable is not set")
+    if not GROQ_API_KEY or not groq_client:
+        LOGGER.error("GROQ_API_KEY environment variable is not set")
         return []
 
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
         prompt = (
             "Return ONLY valid JSON. No prose. No explanation.\n\n"
             "Extract every explicit decision from the meeting notes below.\n"
@@ -238,8 +244,15 @@ def extract_decisions(clean_text: str) -> List[str]:
             f"Meeting notes:\n{clean_text}"
         )
 
-        response = model.generate_content(prompt)
-        raw_output = response.text.strip() if hasattr(response, "text") and response.text else ""
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2,
+        )
+        
+        raw_output = response.choices[0].message.content.strip() if response.choices else ""
 
         if not raw_output:
             return []
@@ -268,7 +281,7 @@ def extract_decisions(clean_text: str) -> List[str]:
 
 def extract_todos(clean_text: str) -> List[Dict[str, str]]:
     """
-    Extract action items (TODOs) from meeting notes using Gemini.
+    Extract action items (TODOs) from meeting notes using Groq.
 
     Args:
         clean_text: The cleaned/preprocessed meeting text
@@ -280,12 +293,11 @@ def extract_todos(clean_text: str) -> List[Dict[str, str]]:
     if not clean_text or not clean_text.strip():
         return []
 
-    if not GOOGLE_API_KEY:
-        LOGGER.error("GOOGLE_API_KEY environment variable is not set")
+    if not GROQ_API_KEY or not groq_client:
+        LOGGER.error("GROQ_API_KEY environment variable is not set")
         return []
 
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
         prompt = (
             "Return ONLY valid JSON. No text outside JSON.\n\n"
             "Do not infer. Only extract explicit actions.\n\n"
@@ -299,8 +311,15 @@ def extract_todos(clean_text: str) -> List[Dict[str, str]]:
             f"Meeting notes:\n{clean_text}"
         )
 
-        response = model.generate_content(prompt)
-        raw_output = response.text.strip() if hasattr(response, "text") and response.text else ""
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2,
+        )
+        
+        raw_output = response.choices[0].message.content.strip() if response.choices else ""
 
         if not raw_output:
             return []
@@ -488,7 +507,7 @@ def main() -> None:
         """
         **Step 1: Text Ingestion** | **Step 2: NLP Preprocessing** | **Step 3: LLM Insights** | **Step 4: Results**
 
-        Paste your meeting notes below, run preprocessing, and let Gemini extract
+        Paste your meeting notes below, run preprocessing, and let Groq extract
         the summary, decisions, and action items.
         """
     )
@@ -513,7 +532,7 @@ def main() -> None:
                 preprocessed = preprocess_text(meeting_notes)
                 clean_text = preprocessed["clean_text"]
 
-                # Step 2: Call Gemini LLM functions
+                # Step 2: Call Groq LLM functions
                 summary = generate_summary(clean_text)
                 decisions = extract_decisions(clean_text)
                 todos = extract_todos(clean_text)
