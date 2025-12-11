@@ -10,31 +10,34 @@
   - Résumés de réunion
   - Décisions prises
   - Actions/TODOs avec propriétaires et dates d'échéance
+- **Sauvegarde automatique** : Enregistrement des réunions analysées dans la base de données
 
 ### 📊 Gestion des Données
 - **Base de données SQLite** : Stockage persistant de toutes les réunions
-- **Historique complet** : Consultation de toutes les réunions passées
+- **Historique complet** : Consultation de toutes les réunions passées avec détails
 - **Gestion des TODOs** : Suivi des actions avec statuts (pending, in_progress, completed)
+- **Gestion des participants** : Suivi automatique des participants aux réunions
 
-### 🔗 Intégrations Externes
-- **Intégration Trello** (optionnel) :
-  - Création automatique de cartes : Conversion des TODOs en cartes Trello
-  - Liaison bidirectionnelle : Chaque TODO peut être lié à une carte Trello
-  - Gestion des statuts : Mise à jour des statuts des TODOs directement depuis l'interface
-  
-- **Intégration Notion** (optionnel) :
-  - Création automatique de pages : Conversion des TODOs en pages Notion
-  - Mapping dynamique : Adaptation automatique aux propriétés de votre base de données Notion
-  - Support multi-langue : Compatible avec les bases de données en français et en anglais
-  - Liaison bidirectionnelle : Chaque TODO peut être lié à une page Notion
+### 🔗 Intégration Notion
+
+L'application s'intègre nativement avec **Notion** pour une gestion complète des TODOs :
+
+- **Création automatique de pages** : Conversion des TODOs en pages Notion
+- **Mapping dynamique** : Adaptation automatique aux propriétés de votre base de données Notion
+- **Support multi-langue** : Compatible avec les bases de données en français et en anglais
+- **Liaison bidirectionnelle** : Chaque TODO peut être lié à une page Notion
+- **Synchronisation bidirectionnelle** :
+  - **Sync Notion → DB** : Mise à jour des statuts des TODOs depuis Notion
+  - **Sync DB → Notion** : Mise à jour des statuts Notion depuis la base de données
+  - **Vue Kanban Sync** : Interface dédiée pour visualiser et synchroniser le Kanban Notion avec la DB
+- **Détection automatique** : Identification automatique des propriétés Kanban (Status/Select) dans votre base Notion
 
 ## 🚀 Installation
 
 ### Prérequis
 - Python 3.8 ou supérieur
 - Compte Groq (pour l'API Groq)
-- Compte Trello (optionnel, pour l'intégration Trello)
-- Compte Notion (optionnel, pour l'intégration Notion)
+- Compte Notion (pour l'intégration Notion)
 
 ### Étapes d'installation
 
@@ -68,12 +71,7 @@
    GROQ_API_KEY=your_groq_api_key_here
    GROQ_MODEL=llama-3.1-8b-instant
    
-   # Trello API (optionnel)
-   TRELLO_API_KEY=your_trello_api_key
-   TRELLO_API_TOKEN=your_trello_api_token
-   TRELLO_LIST_ID=your_trello_list_id
-   
-   # Notion API (optionnel)
+   # Notion API (requis pour l'intégration)
    NOTION_API_KEY=your_notion_api_key
    NOTION_DATABASE_ID=your_notion_database_id
    ```
@@ -86,14 +84,7 @@
 3. Générer une clé API dans la section "API Keys"
 4. Copier la clé dans votre fichier `.env`
 
-#### Trello API (optionnel)
-1. Aller sur [Trello Developer API Keys](https://trello.com/app-key)
-2. Copier votre API Key
-3. Générer un token (lien fourni sur la même page)
-4. Obtenir l'ID de la liste Trello où créer les cartes
-5. Ajouter ces valeurs dans votre fichier `.env`
-
-#### Notion API (optionnel)
+#### Notion API
 1. Aller sur [Notion Integrations](https://www.notion.so/my-integrations)
 2. Créer une nouvelle intégration (ou utiliser une existante)
 3. Copier le "Internal Integration Token" (commence par `ntn_`)
@@ -117,32 +108,56 @@ streamlit run app.py
 
 L'application s'ouvrira automatiquement dans votre navigateur à l'adresse `http://localhost:8501`.
 
+### Navigation
+
+L'application propose 4 vues principales accessibles via la barre latérale :
+
+1. **Analyze Meeting** : Analyse de nouvelles réunions
+2. **History** : Consultation de l'historique des réunions
+3. **All TODOs** : Gestion de tous les TODOs
+4. **Kanban Sync** : Synchronisation avec Notion Kanban
+
 ### Workflow principal
 
 1. **Analyser une réunion**
+   - Naviguer vers "Analyze Meeting"
    - Coller les notes de réunion dans la zone de texte
    - Cliquer sur "Analyze meeting"
    - L'application va :
      - Préprocesser le texte (statistiques NLP)
      - Extraire le résumé, les décisions et les TODOs via Groq
      - Afficher les résultats
+     - Sauvegarder automatiquement dans la base de données
 
 2. **Consulter l'historique**
    - Naviguer vers la page "History"
-   - Sélectionner une réunion
-   - Voir le résumé, les décisions, les TODOs et les participants
+   - Parcourir toutes les réunions enregistrées
+   - Voir le résumé, les décisions, les TODOs et les participants pour chaque réunion
 
 3. **Gérer les TODOs**
    - Naviguer vers la page "All TODOs"
-   - Voir tous les TODOs de toutes les réunions
-   - Mettre à jour les statuts (acknowledged, done)
-   - Créer des cartes Trello ou des pages Notion pour les TODOs
+   - Voir tous les TODOs de toutes les réunions dans un tableau
+   - Sélectionner un TODO pour :
+     - Marquer comme "acknowledged" (en cours)
+     - Marquer comme "done" (terminé)
+     - Créer une page Notion (si non lié)
+   - Utiliser les boutons de synchronisation pour synchroniser avec Notion
 
-4. **Intégrations externes**
-   - **Trello** : Sélectionner un TODO et cliquer sur "Push to Trello" pour créer une carte
-   - **Notion** : Sélectionner un TODO et cliquer sur "Push to Notion" pour créer une page
-   - Les TODOs seront automatiquement liés aux cartes/pages créées
+4. **Synchroniser avec Notion Kanban**
+   - Naviguer vers la page "Kanban Sync"
+   - Visualiser côte à côte :
+     - Le Kanban Notion (colonnes et cartes)
+     - Les TODOs de la base de données liés à Notion
+   - Utiliser les boutons de synchronisation :
+     - **Sync from Notion → DB** : Mettre à jour les statuts DB depuis Notion
+     - **Sync from DB → Notion** : Mettre à jour les statuts Notion depuis la DB
+     - **Full Sync** : Synchronisation complète bidirectionnelle
+
+5. **Intégration Notion**
+   - Sélectionner un TODO et cliquer sur "Push to Notion" pour créer une page
+   - Les TODOs seront automatiquement liés aux pages Notion créées
    - Le mapping des propriétés s'adapte automatiquement à votre base de données Notion
+   - Les statuts sont synchronisés automatiquement entre la DB et Notion
 
 ## 📁 Structure du Projet
 
@@ -159,10 +174,10 @@ PSTB_Project/
 │   └── ...
 ├── views/                      # Vues Streamlit
 │   ├── history.py              # Vue historique des réunions
-│   └── todos.py                # Vue gestion des TODOs
+│   ├── todos.py                # Vue gestion des TODOs
+│   └── kanban.py               # Vue synchronisation Kanban Notion
 └── integrations/               # Intégrations externes
-    ├── trello_client.py        # Client Trello API
-    └── notion_client.py        # Client Notion API
+    └── notion_client.py        # Client Notion API (avec sync bidirectionnelle)
 ```
 
 ## 🛠️ Technologies Utilisées
@@ -172,8 +187,9 @@ PSTB_Project/
 - **NLTK** : Bibliothèque de traitement du langage naturel
 - **SQLAlchemy** : ORM pour la gestion de la base de données
 - **Pandas** : Manipulation et analyse de données
+- **NumPy** : Calculs numériques
 - **Notion Client** : Client Python pour l'API Notion
-- **Requests** : Client HTTP pour l'API Trello
+- **Requests** : Client HTTP pour les appels API
 - **Python-dotenv** : Gestion des variables d'environnement
 
 ## 📊 Modèles de Données
@@ -181,6 +197,7 @@ PSTB_Project/
 ### Meeting
 - `id` : Identifiant unique
 - `date` : Date de la réunion
+- `title` : Titre de la réunion (optionnel)
 - `summary` : Résumé généré par l'IA
 - `raw_text` : Texte brut des notes
 
@@ -191,7 +208,6 @@ PSTB_Project/
 - `owner` : Propriétaire de la tâche
 - `due_date` : Date d'échéance
 - `status` : Statut (pending, in_progress, completed)
-- `trello_card_id` : ID de la carte Trello liée (optionnel)
 - `notion_page_id` : ID de la page Notion liée (optionnel)
 - `created_at`, `acknowledged_at`, `completed_at` : Timestamps
 
@@ -234,11 +250,6 @@ rm meeting_brain.db
 - Assurez-vous que le fichier `.env` est à la racine du projet
 - Obtenez votre clé API sur [Groq Console](https://console.groq.com/)
 
-### Erreur lors de la création de carte Trello
-- Vérifiez que toutes les variables Trello sont configurées dans `.env`
-- Vérifiez que `TRELLO_LIST_ID` correspond à une liste existante dans votre tableau Trello
-- Consultez les logs pour plus de détails
-
 ### Erreur lors de la création de page Notion
 - Vérifiez que `NOTION_API_KEY` et `NOTION_DATABASE_ID` sont configurés dans `.env`
 - Vérifiez que la base de données Notion est partagée avec votre intégration
@@ -247,6 +258,16 @@ rm meeting_brain.db
   ```bash
   python test_notion_connection.py
   ```
+- Consultez les logs pour plus de détails
+
+### Erreur de synchronisation Notion
+- Vérifiez que les TODOs ont un `notion_page_id` (utilisez "Push to Notion" d'abord)
+- Vérifiez que la propriété Kanban dans Notion est de type "Status" ou "Select"
+- Les statuts sont mappés automatiquement entre DB et Notion :
+  - `pending` → "To Do" / "En attente" / "À faire"
+  - `in_progress` → "In Progress" / "En cours" / "En progression"
+  - `completed` → "Done" / "Terminé" / "Fait"
+- Le mapping est insensible à la casse et gère les accents
 - Consultez les logs pour plus de détails
 
 ### Problèmes avec NLTK
@@ -263,6 +284,29 @@ rm meeting_brain.db
 - L'application utilise SQLite par défaut pour la simplicité
 - Les données sont persistantes entre les sessions
 - Les logs sont affichés dans la console où Streamlit est lancé
+- La synchronisation Notion est bidirectionnelle et gère automatiquement le mapping des statuts
+- Les modèles Groq sont rapides et efficaces pour l'extraction d'informations
+- Le mapping des propriétés Notion est dynamique et s'adapte à votre schéma de base de données
+
+## 🎯 Fonctionnalités par Sprint
+
+### Sprint 1
+- ✅ Analyse de réunions avec NLP preprocessing
+- ✅ Extraction de résumés, décisions et TODOs via LLM
+- ✅ Interface Streamlit de base
+
+### Sprint 2
+- ✅ Base de données SQLite avec SQLAlchemy
+- ✅ Historique des réunions
+- ✅ Gestion des TODOs avec statuts
+
+### Sprint 3
+- ✅ Intégration Notion complète
+- ✅ Synchronisation bidirectionnelle Notion ↔ DB
+- ✅ Vue Kanban Sync pour visualisation et synchronisation
+- ✅ Migration de Google Gemini vers Groq
+- ✅ Mapping dynamique des propriétés Notion
+- ✅ Support multi-langue pour les statuts Notion
 
 ## 🤝 Contribution
 
@@ -281,4 +325,4 @@ Développé dans le cadre du projet PSTB.
 
 ---
 
-**Meeting Brain** - Transformez vos notes de réunion en actions concrètes ! 🚀
+**Meeting Brain** - Transformez vos notes de réunion en actions concrètes avec Notion ! 🚀

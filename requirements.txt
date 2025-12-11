@@ -1,3 +1,6 @@
+# Meeting Brain - Project Dependencies
+# Install with: pip install -r requirements.txt
+
 # Core Framework
 streamlit>=1.51.0
 
@@ -18,4 +21,3 @@ requests>=2.32.5
 
 # Utilities
 python-dotenv>=1.2.1
-
