@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from api.routes import health, meetings, todos, decisions, analytics, exports
+from api.routes import health, meetings, todos, decisions, analytics, exports, insights, slack
 from api.security import get_auth_token
 from api.errors import ErrorResponseDTO, ErrorDTO
 
@@ -133,4 +133,6 @@ app.include_router(todos.router, tags=["todos"])
 app.include_router(decisions.router, tags=["decisions"])
 app.include_router(analytics.router, tags=["analytics"])
 app.include_router(exports.router, tags=["exports"])
+app.include_router(insights.router, prefix="/insights", tags=["insights"])
+app.include_router(slack.router, prefix="/slack", tags=["slack"])
 

@@ -351,7 +351,7 @@ def main() -> None:
     st.sidebar.markdown("### 📋 Navigation")
     page = st.sidebar.radio(
         "Choisir une page",
-        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync", "Q&A", "Analytics", "Todo Events", "Demo"],
+        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync", "Q&A", "Analytics", "Todo Events", "Insights", "Demo"],
         label_visibility="visible",
         index=0
     )
@@ -387,6 +387,11 @@ def main() -> None:
     if page == "Todo Events":
         from views.todo_events import render_todo_events_view
         render_todo_events_view()
+        return
+    
+    if page == "Insights":
+        from views.insights import render_insights_view
+        render_insights_view()
         return
     
     if page == "Demo":
