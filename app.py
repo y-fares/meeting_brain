@@ -25,6 +25,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
 
 from utils_json import parse_decisions, parse_todos
+from services.text_pipeline import preprocess_text
 
 # Load environment variables from .env file
 load_dotenv()
@@ -86,91 +87,8 @@ def _strip_json_fence(text: str) -> str:
 # Feature 2: NLP preprocessing
 # ---------------------------------------------------------------------------
 
-
-def preprocess_text(raw_text: str) -> Dict[str, Any]:
-    """
-    Clean and preprocess raw text using NLP techniques.
-
-    Args:
-        raw_text: The raw input text to preprocess
-
-    Returns:
-        A dictionary containing cleaned text, tokens, and statistics.
-    """
-    # Strip leading/trailing spaces
-    text = raw_text.strip()
-
-    # Normalize multiple spaces and newlines
-    text = re.sub(r"\s+", " ", text)  # Replace multiple spaces/newlines with single space
-    text = re.sub(r"\n+", "\n", text)  # Normalize multiple newlines
-
-    # Lowercase the text
-    clean_text = text.lower()
-
-    # Tokenize the text
-    tokens_raw = word_tokenize(clean_text) if clean_text else []
-
-    # Load stopwords for English and French
-    try:
-        stop_words_en = set(stopwords.words("english"))
-        stop_words_fr = set(stopwords.words("french"))
-        stop_words = stop_words_en.union(stop_words_fr)
-    except LookupError:
-        stop_words = set()
-
-    # Filter out stopwords and punctuation-only tokens
-    tokens_filtered = [
-        token for token in tokens_raw
-        if token not in stop_words and token.isalnum()
-    ]
-
-    # Calculate basic statistics
-    num_chars = len(clean_text)
-    num_lines = len(clean_text.splitlines())
-    num_tokens_raw = len(tokens_raw)
-    num_tokens_filtered = len(tokens_filtered)
-
-    # Calculate additional statistics
-    unique_words_raw = len(set(tokens_raw))
-    unique_words_filtered = len(set(tokens_filtered))
-
-    # Lexical diversity (unique words / total words)
-    lexical_diversity_raw = unique_words_raw / num_tokens_raw if num_tokens_raw > 0 else 0
-    lexical_diversity_filtered = unique_words_filtered / num_tokens_filtered if num_tokens_filtered > 0 else 0
-
-    # Average word length
-    avg_word_length = sum(len(token) for token in tokens_filtered) / num_tokens_filtered if num_tokens_filtered > 0 else 0
-
-    # Average sentence length (in words)
-    try:
-        sentences = sent_tokenize(clean_text)
-        num_sentences = len(sentences)
-        avg_sentence_length = num_tokens_raw / num_sentences if num_sentences > 0 else 0
-    except Exception:
-        num_sentences = 0
-        avg_sentence_length = 0
-
-    # Top 10 most frequent words (filtered)
-    word_freq = Counter(tokens_filtered)
-    top_words = word_freq.most_common(10)
-
-    return {
-        "clean_text": clean_text,
-        "tokens_raw": tokens_raw,
-        "tokens_filtered": tokens_filtered,
-        "num_chars": num_chars,
-        "num_lines": num_lines,
-        "num_tokens_raw": num_tokens_raw,
-        "num_tokens_filtered": num_tokens_filtered,
-        "unique_words_raw": unique_words_raw,
-        "unique_words_filtered": unique_words_filtered,
-        "lexical_diversity_raw": lexical_diversity_raw,
-        "lexical_diversity_filtered": lexical_diversity_filtered,
-        "avg_word_length": avg_word_length,
-        "num_sentences": num_sentences,
-        "avg_sentence_length": avg_sentence_length,
-        "top_words": top_words,
-    }
+# Import from services.text_pipeline to avoid duplication
+from services.text_pipeline import preprocess_text
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +351,7 @@ def main() -> None:
     st.sidebar.markdown("### 📋 Navigation")
     page = st.sidebar.radio(
         "Choisir une page",
-        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync", "Q&A", "Analytics", "Todo Events"],
+        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync", "Q&A", "Analytics", "Todo Events", "Demo"],
         label_visibility="visible",
         index=0
     )
@@ -469,6 +387,11 @@ def main() -> None:
     if page == "Todo Events":
         from views.todo_events import render_todo_events_view
         render_todo_events_view()
+        return
+    
+    if page == "Demo":
+        from views.demo import render_demo_view
+        render_demo_view()
         return
     
     # Default: Analyze Meeting mode

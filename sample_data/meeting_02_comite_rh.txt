@@ -1,0 +1,53 @@
+Date : 6 février 2025
+Participants : Aïcha (DRH), Thomas (Responsable Paie), Lina (Juriste), Hugo (Talent Acquisition)
+
+1. Contexte
+
+Revue mensuelle des effectifs, risques juridiques et plan de recrutement Q2.
+
+2. Ordre du jour
+
+Analyse des absences et turnover
+
+Problèmes sur les fiches de paie (janvier)
+
+Recrutements prioritaires Q2
+
+Mise à jour du règlement intérieur
+
+3. Discussions
+
+Turnover : hausse de 3 points en support client. Aïcha demande un plan d'action ciblé.
+
+Fiches de paie : erreurs sur les primes d'ancienneté pour 12 employés. Thomas explique que le script d'automatisation a appliqué une mauvaise TVA RH (erreur d'arrondi).
+
+Recrutement Q2 : priorité à deux profils : DevOps senior + Commercial B2B.
+
+Règlement intérieur : Lina doit intégrer de nouvelles obligations sur le télétravail.
+
+4. Décisions
+
+Lancer un audit "bien-être Support client"
+
+Corriger toutes les fiches de paie erronées sous 72h
+
+Prioriser recrutement DevOps + Commercial
+
+Mettre à jour règlement intérieur d'ici fin février
+
+5. Actions
+
+Thomas → corriger 12 fiches de paie (deadline : 2025-02-09)
+
+Lina → produire version amendée du règlement (deadline : 2025-02-28)
+
+Hugo → lancer sourcing DevOps senior (deadline : 2025-02-12)
+
+Aïcha → plan d'amélioration support client (deadline : 2025-02-20)
+
+6. Risques
+
+Risque prud'homal si les corrections de paie tardent.
+
+Pénurie de profils DevOps sur le marché.
+

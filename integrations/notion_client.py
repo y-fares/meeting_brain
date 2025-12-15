@@ -767,8 +767,6 @@ def push_todo_to_notion(todo: Todo, meeting: Meeting) -> Optional[str]:
                     "Skipping status property. Page will be created with default status.",
                     todo_status
                 )
-            else:
-                LOGGER.warning("Status field type '%s' not supported, skipping", prop_type)
         
         if "meeting_id" in property_mapping:
             prop_name = property_mapping["meeting_id"]

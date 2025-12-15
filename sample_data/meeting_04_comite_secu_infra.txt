@@ -1,0 +1,55 @@
+Date : 10 février 2025
+Participants : Paul (Sécurité), Mélanie (Infra), Youssef (Ops), Sonia (RSSI), Lucas (Dev)
+
+1. Contexte
+
+Revue hebdo sécurité + incidents + patching.
+
+2. Ordre du jour
+
+Incident API du 7/02
+
+Patching OS février
+
+Analyse vulnérabilités (scan interne)
+
+Suivi backlog sécurité
+
+3. Discussions
+
+Incident API : saturation du pool de connexions, Lucas prépare un correctif.
+
+Patching : Mélanie indique que 8 serveurs n'ont pas redémarré correctement.
+
+Scan vulnérabilité : 3 CVE critiques détectés (dont une faille sur OpenSSL).
+
+Backlog sécurité : 42 tickets ouverts → Sonia exige une priorisation stricte.
+
+4. Décisions
+
+Priorité absolue : corriger CVE OpenSSL avant le 14/02
+
+Appliquer patch applicatif API d'ici 48h
+
+Normaliser politique de redémarrage serveurs
+
+Réduire backlog critiques à 20 avant fin mars
+
+5. Actions
+
+Lucas → patch API (deadline : 2025-02-12)
+
+Mélanie → corriger reboot serveurs (deadline : 2025-02-13)
+
+Paul → corriger CVE OpenSSL (deadline : 2025-02-14)
+
+Sonia → plan backlog critiques (deadline : 2025-02-18)
+
+6. Risques
+
+CVE exploitable → risque majeur de compromission
+
+Difficultés de reboot → indisponibilités
+
+Surcharge équipe sécurité
+

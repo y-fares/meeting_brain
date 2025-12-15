@@ -337,4 +337,74 @@ Développé dans le cadre du projet PSTB.
 
 ---
 
+## 📖 Runbook
+
+### Installation
+
+```bash
+# Installer les dépendances
+pip install -r requirements.txt
+
+# Installer les dépendances de développement (optionnel)
+pip install -r requirements-dev.txt
+```
+
+### Configuration
+
+1. Copier `.env.example` vers `.env`
+2. Configurer les variables d'environnement dans `.env`:
+   - `MEETING_BRAIN_DB_URL`: URL de la base de données (SQLite par défaut)
+   - `API_AUTH_TOKEN`: Token d'authentification pour l'API (optionnel en dev)
+   - `GROQ_API_KEY`: Clé API Groq pour l'extraction LLM
+   - `NOTION_API_KEY` et `NOTION_DATABASE_ID`: Pour l'intégration Notion (optionnel)
+
+### Lancer l'application Streamlit
+
+```bash
+streamlit run app.py
+```
+
+L'application sera accessible sur `http://localhost:8501`
+
+### Lancer l'API FastAPI
+
+```bash
+uvicorn api.main:app --reload
+```
+
+L'API sera accessible sur `http://localhost:8000`
+- Documentation interactive: `http://localhost:8000/docs`
+- Health check (public): `http://localhost:8000/health`
+
+### Utilisation de l'API avec authentification
+
+Si `API_AUTH_TOKEN` est défini dans `.env`, tous les endpoints (sauf `/health`) nécessitent un token Bearer:
+
+```bash
+# Exemple avec curl
+curl -H "Authorization: Bearer votre-token-ici" http://localhost:8000/meetings
+
+# Exemple avec Python requests
+import requests
+headers = {"Authorization": "Bearer votre-token-ici"}
+response = requests.get("http://localhost:8000/meetings", headers=headers)
+```
+
+Si `API_AUTH_TOKEN` n'est pas défini, l'API fonctionne en mode développement (pas d'authentification requise).
+
+### Tests
+
+```bash
+# Lancer tous les tests
+pytest
+
+# Lancer les tests avec couverture
+pytest --cov=. --cov-report=html
+
+# Lancer uniquement les tests de l'API
+pytest tests/test_api_auth.py tests/test_api_errors.py
+```
+
+---
+
 **Meeting Brain** - Transformez vos notes de réunion en actions concrètes avec Notion ! 🚀

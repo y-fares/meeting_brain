@@ -95,8 +95,7 @@ def render_todo_events_view() -> None:
         st.dataframe(
             df_events,
             width='stretch',
-            hide_index=True,
-            use_container_width=True
+            hide_index=True
         )
         
         # Summary statistics
