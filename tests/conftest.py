@@ -3,10 +3,14 @@ Pytest configuration and fixtures for Meeting Brain tests.
 """
 
 import os
+import sys
 import tempfile
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+# Add parent directory to path to allow imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import Base, create_session, SessionLocal, engine
 

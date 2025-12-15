@@ -5,9 +5,12 @@ Displays KPIs, summary tables and provides CSV exports for BI tools.
 
 import streamlit as st
 import pandas as pd
+import logging
 from sqlalchemy.orm import Session
-from database import create_session, Meeting, Todo, Decision
+from database import create_session, Meeting, Todo, Decision, TodoEvent
 from datetime import datetime, date
+
+LOGGER = logging.getLogger(__name__)
 
 
 def render_analytics_view() -> None:
@@ -171,6 +174,27 @@ def render_analytics_view() -> None:
             decisions_by_meeting = decisions_by_meeting.sort_values("count", ascending=False)
             st.dataframe(decisions_by_meeting, width='stretch', hide_index=True)
             st.divider()
+        
+        # d) Status changes over time
+        try:
+            events = session.query(TodoEvent).all()
+            if events:
+                st.markdown("#### Status Changes Over Time")
+                events_data = []
+                for event in events:
+                    events_data.append({
+                        "date": event.created_at.date() if event.created_at else None,
+                        "count": 1
+                    })
+                
+                if events_data:
+                    df_events = pd.DataFrame(events_data)
+                    events_by_date = df_events.groupby("date").size().reset_index(name="count")
+                    events_by_date = events_by_date.sort_values("date", ascending=False)
+                    st.dataframe(events_by_date, width='stretch', hide_index=True)
+                    st.divider()
+        except Exception as exc:
+            LOGGER.debug("Error loading status changes: %s", exc)
         
         # CSV exports section
         st.markdown("### Exports (CSV for BI tools)")

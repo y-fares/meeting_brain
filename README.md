@@ -108,6 +108,18 @@ streamlit run app.py
 
 L'application s'ouvrira automatiquement dans votre navigateur à l'adresse `http://localhost:8501`.
 
+### Tests
+
+Pour exécuter la suite de tests :
+
+```bash
+# Installer les dépendances de développement
+pip install -r requirements-dev.txt
+
+# Exécuter les tests
+pytest -q
+```
+
 ### Navigation
 
 L'application propose 4 vues principales accessibles via la barre latérale :

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from notion_client import Client
 from sqlalchemy.orm import Session
 
-from database import Todo, Meeting
+from database import Todo, Meeting, update_todo_status
 
 LOGGER = logging.getLogger(__name__)
 
@@ -708,58 +708,65 @@ def push_todo_to_notion(todo: Todo, meeting: Meeting) -> Optional[str]:
             # Map Todo status to Notion status name first
             todo_status = todo.status or "pending"
             # Get available options for better matching
+            available_options = []
             if prop_type == "status":
-                status_options = prop_info.get("status", {}).get("options", [])
-                available_options = [opt.get("name", "") for opt in status_options]
-            else:  # select
-                select_options = prop_info.get("select", {}).get("options", [])
-                available_options = [opt.get("name", "") for opt in select_options]
+                # Try different possible structures for status options
+                status_config = prop_info.get("status", {})
+                if isinstance(status_config, dict):
+                    status_options = status_config.get("options", [])
+                    if status_options:
+                        available_options = [opt.get("name", "") if isinstance(opt, dict) else str(opt) for opt in status_options]
+                # Also try direct access if options are at property level
+                if not available_options and "options" in prop_info:
+                    status_options = prop_info.get("options", [])
+                    if status_options:
+                        available_options = [opt.get("name", "") if isinstance(opt, dict) else str(opt) for opt in status_options]
+            elif prop_type == "select":
+                # Try different possible structures for select options
+                select_config = prop_info.get("select", {})
+                if isinstance(select_config, dict):
+                    select_options = select_config.get("options", [])
+                    if select_options:
+                        available_options = [opt.get("name", "") if isinstance(opt, dict) else str(opt) for opt in select_options]
+                # Also try direct access if options are at property level
+                if not available_options and "options" in prop_info:
+                    select_options = prop_info.get("options", [])
+                    if select_options:
+                        available_options = [opt.get("name", "") if isinstance(opt, dict) else str(opt) for opt in select_options]
+            
+            if not available_options:
+                LOGGER.warning(
+                    "Could not retrieve status options from property '%s' (type: %s). "
+                    "Property structure: %s. "
+                    "This may prevent setting the status when creating the page.",
+                    prop_name, prop_type, prop_info
+                )
+            
             desired_notion_status = map_todo_status_to_notion(todo_status, available_options)
             
-            if prop_type == "status":
-                # Use the status returned by map_todo_status_to_notion (which already found the best match)
-                mapped_status = desired_notion_status
-                
-                # Verify it exists in available options (should always be true if map_todo_status_to_notion worked)
-                if mapped_status not in available_options:
-                    # Fallback: use first available option
-                    if available_options:
-                        LOGGER.warning(
-                            "Mapped status '%s' not in available options, using first: '%s'",
-                            mapped_status, available_options[0]
-                        )
-                        mapped_status = available_options[0]
-                else:
-                        LOGGER.error("No status options available")
-                        mapped_status = "To Do"
-                
-                properties[prop_name] = {
-                    "status": {
-                        "name": mapped_status
+            # Only set status if we have a valid mapped status
+            if desired_notion_status:
+                if prop_type == "status":
+                    properties[prop_name] = {
+                        "status": {
+                            "name": desired_notion_status
+                        }
                     }
-                }
-            elif prop_type == "select":
-                # Use the status returned by map_todo_status_to_notion (which already found the best match)
-                mapped_status = desired_notion_status
-                
-                # Verify it exists in available options (should always be true if map_todo_status_to_notion worked)
-                if mapped_status not in available_options:
-                    # Fallback: use first available option
-                    if available_options:
-                        LOGGER.warning(
-                            "Mapped status '%s' not in available options, using first: '%s'",
-                            mapped_status, available_options[0]
-                        )
-                        mapped_status = available_options[0]
-                else:
-                        LOGGER.error("No select options available")
-                        mapped_status = "To Do"
-                
-                properties[prop_name] = {
-                    "select": {
-                        "name": mapped_status
+                elif prop_type == "select":
+                    properties[prop_name] = {
+                        "select": {
+                            "name": desired_notion_status
+                        }
                     }
-                }
+                else:
+                    LOGGER.warning("Status field type '%s' not supported, skipping", prop_type)
+            else:
+                # No valid status found - skip setting it
+                LOGGER.warning(
+                    "Could not map status '%s' to a valid Notion status option. "
+                    "Skipping status property. Page will be created with default status.",
+                    todo_status
+                )
             else:
                 LOGGER.warning("Status field type '%s' not supported, skipping", prop_type)
         
@@ -891,7 +898,7 @@ def map_notion_status_to_todo(notion_status: str) -> str:
     return "pending"
 
 
-def map_todo_status_to_notion(todo_status: str, available_notion_options: Optional[List[str]] = None) -> str:
+def map_todo_status_to_notion(todo_status: str, available_notion_options: Optional[List[str]] = None) -> Optional[str]:
     """
     Map a Todo.status value to a Notion status name.
     
@@ -930,13 +937,14 @@ def map_todo_status_to_notion(todo_status: str, available_notion_options: Option
             )
             return available_notion_options[0]
     
-    # Fallback to hardcoded mapping if no options provided
-    if status_lower in ["done", "completed"]:
-        return "Done"
-    elif status_lower in ["in_progress", "inprogress", "acknowledged"]:
-        return "In Progress"
-    else:  # pending, open, etc.
-        return "To Do"
+    # If no options provided or empty list, return None (caller should skip setting status)
+    # We cannot use hardcoded values like "To Do" because they may not exist in the user's Notion database
+    LOGGER.warning(
+        "No Notion status options available for mapping status '%s'. "
+        "Status property will not be set when creating the page.",
+        todo_status
+    )
+    return None
 
 
 def update_notion_status(page_id: str, new_status: str) -> bool:
@@ -1144,31 +1152,23 @@ def sync_from_notion(session: Session) -> int:
                     # Map Notion status to Todo status
                     new_status = map_notion_status_to_todo(status_name)
                     
-                    # Update if status changed
+                    # Update if status changed using centralized function
                     if new_status != todo.status:
-                        old_status = todo.status
-                        todo.status = new_status
-                        
-                    # Update timestamps based on status
-                    if new_status == "completed" and todo.completed_at is None:
-                        todo.completed_at = datetime.utcnow()
-                        
-                        if new_status == "in_progress" and todo.acknowledged_at is None:
-                            todo.acknowledged_at = datetime.utcnow()
-                        
-                        updated_count += 1
-                        LOGGER.info(
-                            "Updated Todo %d (page_id: %s) status from '%s' to '%s'",
-                            todo.id, page_id, old_status, new_status
+                        update_todo_status(
+                            session=session,
+                            todo_id=todo.id,
+                            new_status=new_status,
+                            source="notion_sync",
+                            note=f"Synced from Notion column '{status_name}'"
                         )
+                        updated_count += 1
                 
                 except Exception as card_err:
                     LOGGER.warning("Error processing Notion card: %s", card_err)
                     continue
         
-        # Commit all changes at once
+        # Note: update_todo_status already commits each change
         if updated_count > 0:
-            session.commit()
             LOGGER.info("Synced %d TODOs from Notion", updated_count)
         else:
             LOGGER.info("No TODOs needed updating from Notion")

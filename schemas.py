@@ -27,9 +27,16 @@ class TodoItem(BaseModel):
         
         # Check if it matches YYYY-MM-DD format
         import re
+        from datetime import datetime
+        
         if re.match(r"^\d{4}-\d{2}-\d{2}$", v):
-            # Basic format check - could add more validation if needed
-            return v
+            # Try to parse the date to ensure it's actually valid
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+                return v
+            except ValueError:
+                # Invalid date (e.g., 2025-13-45) - coerce to empty string
+                return ""
         
         # Invalid format - coerce to empty string
         return ""

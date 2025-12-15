@@ -6,7 +6,6 @@ from datetime import datetime
 import pytest
 
 from database import (
-    create_session,
     create_meeting,
     add_todos,
     add_decisions,
