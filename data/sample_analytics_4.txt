@@ -1,0 +1,29 @@
+Réunion Client - Présentation MVP
+
+Date: 2025-02-10
+
+Participants:
+- Karim (Product Owner)
+- Sarah (Scrum Master)
+- Yacine (Lead Developer)
+- Client: Jean Dupont (CEO)
+- Client: Marie Martin (CTO)
+
+Points discutés:
+- Présentation du MVP
+- Feedback client
+- Demandes d'ajustements
+- Planning de mise en production
+
+Décisions:
+- Valider le MVP avec quelques ajustements mineurs
+- Lancer la phase de beta testing le 1er mars
+- Ajouter une fonctionnalité de notifications
+- Prévoir une session de formation utilisateurs
+
+Actions:
+- Karim : intégrer les feedbacks client dans le backlog (deadline: 2025-02-15)
+- Yacine : implémenter les ajustements demandés (deadline: 2025-02-18)
+- Sarah : préparer le plan de beta testing (deadline: 2025-02-20)
+- Yacine : développer la fonctionnalité de notifications (deadline: 2025-02-25)
+

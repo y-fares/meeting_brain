@@ -1,0 +1,30 @@
+Réunion Sprint Planning Q1 2025
+
+Date: 2025-01-15
+
+Participants:
+- Karim (Product Owner)
+- Sarah (Scrum Master)
+- Yacine (Lead Developer)
+- Lucie (Designer)
+- Julien (Data Engineer)
+
+Points discutés:
+- Revue des objectifs Q1
+- Priorisation des features
+- Allocation des ressources
+- Risques identifiés
+
+Décisions:
+- Lancer le développement de la feature "Dashboard Analytics" en priorité
+- Reporter la feature "Export Excel" au Q2
+- Adopter une approche agile avec sprints de 2 semaines
+- Mettre en place un processus de code review obligatoire
+
+Actions:
+- Karim : finaliser le backlog produit (deadline: 2025-01-20)
+- Sarah : organiser la cérémonie de sprint planning (deadline: 2025-01-22)
+- Yacine : mettre en place l'environnement de développement (deadline: 2025-01-18)
+- Lucie : créer les maquettes du dashboard (deadline: 2025-01-25)
+- Julien : préparer l'architecture des données (deadline: 2025-01-19)
+

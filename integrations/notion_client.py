@@ -729,7 +729,7 @@ def push_todo_to_notion(todo: Todo, meeting: Meeting) -> Optional[str]:
                             mapped_status, available_options[0]
                         )
                         mapped_status = available_options[0]
-                    else:
+                else:
                         LOGGER.error("No status options available")
                         mapped_status = "To Do"
                 
@@ -751,7 +751,7 @@ def push_todo_to_notion(todo: Todo, meeting: Meeting) -> Optional[str]:
                             mapped_status, available_options[0]
                         )
                         mapped_status = available_options[0]
-                    else:
+                else:
                         LOGGER.error("No select options available")
                         mapped_status = "To Do"
                 

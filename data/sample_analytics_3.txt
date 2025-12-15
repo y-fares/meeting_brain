@@ -1,0 +1,28 @@
+Réunion Revue Sprint 1
+
+Date: 2025-02-05
+
+Participants:
+- Sarah (Scrum Master)
+- Yacine (Lead Developer)
+- Lucie (Designer)
+- Karim (Product Owner)
+
+Points discutés:
+- Revue des tâches complétées
+- Blocages rencontrés
+- Performance de l'équipe
+- Ajustements nécessaires
+
+Décisions:
+- Valider les maquettes du dashboard
+- Reporter la feature d'export à cause de problèmes techniques
+- Ajouter une session de formation sur Kubernetes
+- Augmenter la fréquence des daily standups
+
+Actions:
+- Yacine : corriger les bugs critiques identifiés (deadline: 2025-02-08) - STATUS: completed
+- Lucie : finaliser les maquettes responsive (deadline: 2025-02-10) - STATUS: in_progress
+- Sarah : organiser la formation Kubernetes (deadline: 2025-02-12)
+- Karim : mettre à jour le roadmap produit (deadline: 2025-02-07) - STATUS: completed
+

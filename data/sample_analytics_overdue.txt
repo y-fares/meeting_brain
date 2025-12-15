@@ -1,0 +1,30 @@
+Réunion Suivi Projet - Retards Identifiés
+
+Date: 2025-02-20
+
+Participants:
+- Karim (Product Owner)
+- Sarah (Scrum Master)
+- Yacine (Lead Developer)
+- Lucie (Designer)
+
+Points discutés:
+- Revue des tâches en retard
+- Blocages identifiés
+- Actions correctives
+- Réajustement des priorités
+
+Décisions:
+- Réallouer des ressources sur les tâches critiques
+- Mettre en place un suivi hebdomadaire des retards
+- Simplifier certaines fonctionnalités pour respecter les deadlines
+- Communiquer les retards aux stakeholders
+
+Actions (avec dates passées pour tester les retards):
+- Yacine : corriger les bugs bloquants (deadline: 2025-02-10) - EN RETARD
+- Lucie : finaliser les designs manquants (deadline: 2025-02-12) - EN RETARD
+- Sarah : mettre à jour la documentation (deadline: 2025-02-15) - EN RETARD
+- Karim : valider les maquettes (deadline: 2025-02-18) - EN RETARD
+- Yacine : optimiser les performances (deadline: 2025-02-25) - À FAIRE
+- Lucie : créer les assets graphiques (deadline: 2025-02-28) - À FAIRE
+

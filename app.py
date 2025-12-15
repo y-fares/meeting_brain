@@ -24,6 +24,8 @@ from dotenv import load_dotenv
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
 
+from utils_json import parse_decisions, parse_todos
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -257,22 +259,8 @@ def extract_decisions(clean_text: str) -> List[str]:
         if not raw_output:
             return []
 
-        # Parse JSON
-        try:
-            parsed = json.loads(_strip_json_fence(raw_output))
-            decisions = parsed.get("decisions", [])
-
-            if not isinstance(decisions, list):
-                LOGGER.warning("'decisions' field is not a list")
-                LOGGER.info("Raw LLM response: %s", raw_output)
-                return []
-
-            return [str(dec).strip() for dec in decisions if str(dec).strip()]
-
-        except json.JSONDecodeError as json_err:
-            LOGGER.error("Failed to parse decisions JSON: %s", json_err)
-            LOGGER.info("Raw LLM response: %s", raw_output)
-            return []
+        # Parse JSON using safe parsing utility
+        return parse_decisions(raw_output)
 
     except Exception as exc:
         LOGGER.exception("Error while extracting decisions: %s", exc)
@@ -324,40 +312,8 @@ def extract_todos(clean_text: str) -> List[Dict[str, str]]:
         if not raw_output:
             return []
 
-        # Parse JSON
-        try:
-            parsed = json.loads(_strip_json_fence(raw_output))
-            todos = parsed.get("todos", [])
-
-            if not isinstance(todos, list):
-                LOGGER.warning("'todos' field is not a list")
-                LOGGER.info("Raw LLM response: %s", raw_output)
-                return []
-
-            # Normalize and validate each todo
-            normalized_todos = []
-            for todo in todos:
-                if not isinstance(todo, dict):
-                    continue
-
-                task = str(todo.get("task", "")).strip()
-                owner = str(todo.get("owner", "")).strip()
-                due_date = str(todo.get("due_date", "")).strip()
-
-                # Only add todos with a non-empty task
-                if task:
-                    normalized_todos.append({
-                        "task": task,
-                        "owner": owner if owner else "",
-                        "due_date": due_date if due_date else "",
-                    })
-
-            return normalized_todos
-
-        except json.JSONDecodeError as json_err:
-            LOGGER.error("Failed to parse todos JSON: %s", json_err)
-            LOGGER.info("Raw LLM response: %s", raw_output)
-            return []
+        # Parse JSON using safe parsing utility
+        return parse_todos(raw_output)
 
     except Exception as exc:
         LOGGER.exception("Error while extracting todos: %s", exc)
@@ -477,7 +433,7 @@ def main() -> None:
     st.sidebar.markdown("### 📋 Navigation")
     page = st.sidebar.radio(
         "Choisir une page",
-        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync", "Q&A"],
+        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync", "Q&A", "Analytics"],
         label_visibility="visible",
         index=0
     )
@@ -503,6 +459,11 @@ def main() -> None:
     if page == "Q&A":
         from views.qa import render_qa_view
         render_qa_view()
+        return
+    
+    if page == "Analytics":
+        from views.analytics import render_analytics_view
+        render_analytics_view()
         return
     
     # Default: Analyze Meeting mode
