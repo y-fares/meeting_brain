@@ -155,7 +155,7 @@ def _build_slack_blocks(result: dict, question: str) -> list:
     return blocks
 
 
-@router.post("/slack/commands")
+@router.post("/commands")
 async def slack_commands(
     request: Request,
     db: Session = Depends(get_db)
@@ -169,21 +169,36 @@ async def slack_commands(
         # Get raw body for signature verification (must be done before parsing)
         raw_body = await request.body()
         
+        LOGGER.info("Slack command received - body length: %d, headers: %s", len(raw_body), dict(request.headers))
+        
         # Verify signature
         if not verify_slack_signature(dict(request.headers), raw_body):
+            LOGGER.warning("Slack signature verification failed")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"error": "Invalid Slack signature"}
             )
         
-        # Parse form data from raw body
-        from urllib.parse import unquote
-        form_data_str = raw_body.decode("utf-8")
-        form_data = {}
-        for pair in form_data_str.split("&"):
-            if "=" in pair:
-                key, value = pair.split("=", 1)
-                form_data[unquote(key)] = unquote(value)
+        # Parse form data - use FastAPI's Form dependency
+        # But we need to re-read body since we already consumed it
+        # Actually, we need to parse manually since we need raw_body for signature
+        from urllib.parse import unquote, quote_plus
+        try:
+            form_data_str = raw_body.decode("utf-8")
+            form_data = {}
+            for pair in form_data_str.split("&"):
+                if "=" in pair:
+                    key, value = pair.split("=", 1)
+                    # Handle URL encoding
+                    form_data[unquote(key, encoding='utf-8')] = unquote(value, encoding='utf-8')
+        except Exception as parse_exc:
+            LOGGER.exception("Error parsing form data: %s", parse_exc)
+            return JSONResponse(
+                content={
+                    "response_type": "ephemeral",
+                    "text": "Erreur lors du parsing de la requête."
+                }
+            )
         
         command = form_data.get("command", "")
         text = form_data.get("text", "").strip()
@@ -199,34 +214,38 @@ async def slack_commands(
         
         # If no question provided, return usage
         if not text:
-            return {
-                "response_type": "ephemeral",
-                "text": "Usage: /insights <question>",
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": "*Usage:* `/insights <question>`\n\n"
-                                    "Exemples:\n"
-                                    "• `/insights Quelles tâches sont en retard ?`\n"
-                                    "• `/insights Qui est surchargé ?`\n"
-                                    "• `/insights Qu'est-ce qui est bloqué ?`\n"
-                                    "• `/insights Quel est l'avancement ?`\n\n"
-                                    "Ajoutez `--llm` pour une réponse améliorée par IA."
+            return JSONResponse(
+                content={
+                    "response_type": "ephemeral",
+                    "text": "Usage: /insights <question>",
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": "*Usage:* `/insights <question>`\n\n"
+                                        "Exemples:\n"
+                                        "• `/insights Quelles tâches sont en retard ?`\n"
+                                        "• `/insights Qui est surchargé ?`\n"
+                                        "• `/insights Qu'est-ce qui est bloqué ?`\n"
+                                        "• `/insights Quel est l'avancement ?`\n\n"
+                                        "Ajoutez `--llm` pour une réponse améliorée par IA."
+                            }
                         }
-                    }
-                ]
-            }
+                    ]
+                }
+            )
         
         # Parse LLM flag
         question, use_llm = _parse_llm_flag(text)
         
         if not question:
-            return {
-                "response_type": "ephemeral",
-                "text": "Veuillez fournir une question valide."
-            }
+            return JSONResponse(
+                content={
+                    "response_type": "ephemeral",
+                    "text": "Veuillez fournir une question valide."
+                }
+            )
         
         # Call insights engine
         try:
@@ -237,19 +256,23 @@ async def slack_commands(
             )
         except Exception as exc:
             LOGGER.exception("Error calling insights engine: %s", exc)
-            return {
-                "response_type": "ephemeral",
-                "text": f"Erreur lors du traitement de la question: {exc}"
-            }
+            return JSONResponse(
+                content={
+                    "response_type": "ephemeral",
+                    "text": f"Erreur lors du traitement de la question: {exc}"
+                }
+            )
         
         # Build Slack response
         blocks = _build_slack_blocks(result, question)
         
-        return {
+        response_data = {
             "response_type": "ephemeral",
             "text": result.get("answer", "Réponse générée"),
             "blocks": blocks
         }
+        
+        return JSONResponse(content=response_data)
     
     except Exception as exc:
         LOGGER.exception("Error handling Slack command: %s", exc)
@@ -259,7 +282,7 @@ async def slack_commands(
         )
 
 
-@router.post("/slack/events")
+@router.post("/events")
 async def slack_events(request: Request):
     """
     Handle Slack Events API payloads.
