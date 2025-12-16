@@ -1,0 +1,29 @@
+Réunion Rétrospective Sprint 2
+
+Date: 2025-02-15
+
+Participants:
+- Sarah (Scrum Master)
+- Yacine (Lead Developer)
+- Lucie (Designer)
+- Julien (Data Engineer)
+- Paul (DevOps)
+
+Points discutés:
+- Ce qui a bien fonctionné
+- Points d'amélioration
+- Actions correctives
+- Objectifs pour le prochain sprint
+
+Décisions:
+- Améliorer la communication entre équipes
+- Réduire la dette technique
+- Optimiser les processus de déploiement
+- Mettre en place des métriques de performance
+
+Actions:
+- Sarah : organiser des sessions de pair programming (deadline: 2025-02-20)
+- Yacine : réduire la dette technique (deadline: 2025-02-28) - STATUS: in_progress
+- Paul : optimiser les pipelines CI/CD (deadline: 2025-02-22)
+- Julien : mettre en place le monitoring des performances (deadline: 2025-02-25)
+

@@ -85,30 +85,148 @@ class Todo(Base):
     meeting = relationship("Meeting", back_populates="todos")
 
 
-def acknowledge_todo(session: Session, todo_id: int) -> None:
-    """Mark a TODO as acknowledged (in progress)."""
+class TodoEvent(Base):
+    """TodoEvent model for audit trail of status changes."""
+    __tablename__ = "todo_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    todo_id = Column(Integer, ForeignKey("todos.id"), nullable=False, index=True)
+    old_status = Column(String, nullable=True)
+    new_status = Column(String, nullable=False)
+    source = Column(String, nullable=False, default="unknown")
+    note = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationship to Todo
+    todo = relationship("Todo", backref="events")
+
+
+def ensure_schema() -> None:
+    """
+    Ensure required tables exist for the current version of the app.
+    For SQLite, create missing tables if they don't exist.
+    This must be idempotent.
+    """
+    Base.metadata.create_all(bind=engine)
+
+
+def log_todo_event(
+    session: Session,
+    todo_id: int,
+    old_status: Optional[str],
+    new_status: str,
+    source: str = "unknown",
+    note: Optional[str] = None,
+) -> Optional["TodoEvent"]:
+    """
+    Create a TodoEvent row recording a status transition.
+    Must commit or flush safely, without breaking the caller flow.
+    
+    Returns:
+        TodoEvent instance if successful, None on error
+    """
+    try:
+        event = TodoEvent(
+            todo_id=todo_id,
+            old_status=old_status,
+            new_status=new_status,
+            source=source,
+            note=note,
+            created_at=datetime.utcnow()
+        )
+        session.add(event)
+        session.flush()  # Flush to get event.id, but don't commit yet (caller commits)
+        return event
+    except Exception as exc:
+        LOGGER.exception("Error while logging todo event: %s", exc)
+        return None
+
+
+def update_todo_status(
+    session: Session,
+    todo_id: int,
+    new_status: str,
+    source: str,
+    note: Optional[str] = None,
+) -> None:
+    """
+    Update a TODO's status and log the event.
+    Handles timestamp updates based on status.
+    
+    Args:
+        session: SQLAlchemy session
+        todo_id: ID of the todo to update
+        new_status: New status value
+        source: Source of the change (e.g., "ui", "notion_sync")
+        note: Optional note about the change
+    """
     try:
         todo = session.query(Todo).filter_by(id=todo_id).first()
-        if todo:
-            todo.status = "in_progress"
-            todo.acknowledged_at = datetime.utcnow()
+        if not todo:
+            LOGGER.warning("Todo with id %d not found", todo_id)
+            return
+        
+        old_status = todo.status
+        
+        # Only update if status actually changed
+        if old_status != new_status:
+            todo.status = new_status
+            
+            # Update timestamps based on status
+            # Consider in_progress strings
+            if new_status in ["in_progress", "in progress"]:
+                if todo.acknowledged_at is None:
+                    todo.acknowledged_at = datetime.utcnow()
+            
+            # Consider done/completed strings
+            if new_status in ["done", "completed"]:
+                if todo.completed_at is None:
+                    todo.completed_at = datetime.utcnow()
+            
+            # Log the event
+            log_todo_event(
+                session=session,
+                todo_id=todo_id,
+                old_status=old_status,
+                new_status=new_status,
+                source=source,
+                note=note
+            )
+            
             session.commit()
+            LOGGER.info(
+                "Updated Todo %d status from '%s' to '%s' (source: %s)",
+                todo_id, old_status, new_status, source
+            )
+        else:
+            # Status unchanged, no event logged
+            LOGGER.debug("Todo %d status unchanged (%s), skipping event", todo_id, new_status)
+    
     except Exception as exc:
         session.rollback()
-        LOGGER.exception("Error while acknowledging todo: %s", exc)
+        LOGGER.exception("Error while updating todo status: %s", exc)
+
+
+def acknowledge_todo(session: Session, todo_id: int) -> None:
+    """Mark a TODO as acknowledged (in progress)."""
+    update_todo_status(
+        session=session,
+        todo_id=todo_id,
+        new_status="in_progress",
+        source="ui",
+        note="Marked acknowledged in UI"
+    )
 
 
 def complete_todo(session: Session, todo_id: int) -> None:
     """Mark a TODO as completed."""
-    try:
-        todo = session.query(Todo).filter_by(id=todo_id).first()
-        if todo:
-            todo.status = "completed"
-            todo.completed_at = datetime.utcnow()
-            session.commit()
-    except Exception as exc:
-        session.rollback()
-        LOGGER.exception("Error while completing todo: %s", exc)
+    update_todo_status(
+        session=session,
+        todo_id=todo_id,
+        new_status="completed",
+        source="ui",
+        note="Marked done in UI"
+    )
 
 
 def set_trello_card_id(session: Session, todo_id: int, card_id: str) -> None:
@@ -228,6 +346,112 @@ def add_participants(session: Session, meeting_id: int, participants: List[str])
         raise
 
 
+def ensure_schema() -> None:
+    """
+    Ensure required tables exist for the current version of the app.
+    For SQLite, create missing tables if they don't exist.
+    This must be idempotent.
+    """
+    Base.metadata.create_all(bind=engine)
+
+
+def log_todo_event(
+    session: Session,
+    todo_id: int,
+    old_status: Optional[str],
+    new_status: str,
+    source: str = "unknown",
+    note: Optional[str] = None,
+) -> Optional["TodoEvent"]:
+    """
+    Create a TodoEvent row recording a status transition.
+    Must commit or flush safely, without breaking the caller flow.
+    
+    Returns:
+        TodoEvent instance if successful, None on error
+    """
+    try:
+        event = TodoEvent(
+            todo_id=todo_id,
+            old_status=old_status,
+            new_status=new_status,
+            source=source,
+            note=note,
+            created_at=datetime.utcnow()
+        )
+        session.add(event)
+        session.flush()  # Flush to get event.id, but don't commit yet (caller commits)
+        return event
+    except Exception as exc:
+        LOGGER.exception("Error while logging todo event: %s", exc)
+        return None
+
+
+def update_todo_status(
+    session: Session,
+    todo_id: int,
+    new_status: str,
+    source: str,
+    note: Optional[str] = None,
+) -> None:
+    """
+    Update a TODO's status and log the event.
+    Handles timestamp updates based on status.
+    
+    Args:
+        session: SQLAlchemy session
+        todo_id: ID of the todo to update
+        new_status: New status value
+        source: Source of the change (e.g., "ui", "notion_sync")
+        note: Optional note about the change
+    """
+    try:
+        todo = session.query(Todo).filter_by(id=todo_id).first()
+        if not todo:
+            LOGGER.warning("Todo with id %d not found", todo_id)
+            return
+        
+        old_status = todo.status
+        
+        # Only update if status actually changed
+        if old_status != new_status:
+            todo.status = new_status
+            
+            # Update timestamps based on status
+            # Consider in_progress strings
+            if new_status in ["in_progress", "in progress"]:
+                if todo.acknowledged_at is None:
+                    todo.acknowledged_at = datetime.utcnow()
+            
+            # Consider done/completed strings
+            if new_status in ["done", "completed"]:
+                if todo.completed_at is None:
+                    todo.completed_at = datetime.utcnow()
+            
+            # Log the event
+            log_todo_event(
+                session=session,
+                todo_id=todo_id,
+                old_status=old_status,
+                new_status=new_status,
+                source=source,
+                note=note
+            )
+            
+            session.commit()
+            LOGGER.info(
+                "Updated Todo %d status from '%s' to '%s' (source: %s)",
+                todo_id, old_status, new_status, source
+            )
+        else:
+            # Status unchanged, no event logged
+            LOGGER.debug("Todo %d status unchanged (%s), skipping event", todo_id, new_status)
+    
+    except Exception as exc:
+        session.rollback()
+        LOGGER.exception("Error while updating todo status: %s", exc)
+
+
 # Create tables
-Base.metadata.create_all(engine)
+ensure_schema()
 

@@ -1,0 +1,55 @@
+Types de questions supportées
+Le module Q&A analyse les données de votre base de données (réunions, décisions, TODOs) et peut répondre à des questions sur :
+1. Questions sur les TODOs / Actions
+
+Statuts :
+"Quelles sont les tâches en attente ?" / "What are the pending tasks?"
+"Quels sont les TODOs en cours ?" / "What tasks are in progress?"
+"Quelles tâches sont terminées ?" / "What tasks are completed?"
+Par propriétaire :
+"Quelles sont les tâches assignées à Karim ?" / "What tasks are assigned to Karim?"
+"Quels sont les TODOs de Yacine ?" / "What are Yacine's TODOs?"
+"Quelles actions sont assignées à [nom] ?"
+Tâches en retard :
+"Quelles sont les tâches en retard ?" / "What tasks are late?"
+"Quels TODOs sont en retard ?" / "What TODOs are overdue?"
+"Quelles actions sont dépassées ?"
+Générales :
+"Combien de tâches sont en attente ?" / "How many tasks are pending?"
+"Quelles sont les prochaines échéances ?" / "What are the upcoming due dates?"
+"Résume-moi toutes les actions en cours" / "Summarize all in-progress actions"
+
+2. Questions sur les réunions
+
+"Quelles sont les dernières réunions ?" / "What are the recent meetings?"
+"Résume la dernière réunion" / "Summarize the last meeting"
+"Quand a eu lieu la réunion sur [sujet] ?" / "When was the meeting about [topic]?"
+"Quelles réunions ont eu lieu cette semaine ?" / "What meetings happened this week?"
+
+3. Questions sur les décisions
+
+"Quelles décisions ont été prises récemment ?" / "What decisions were made recently?"
+"Quelles sont les décisions de la dernière réunion ?" / "What are the decisions from the last meeting?"
+"Résume toutes les décisions prises" / "Summarize all decisions made"
+
+4. Questions combinées
+
+"Quelles actions découlent de la dernière réunion ?" / "What actions came from the last meeting?"
+"Qui est responsable des tâches en retard ?" / "Who is responsible for late tasks?"
+"Quelles décisions ont été prises mais pas encore implémentées ?" / "What decisions were made but not yet implemented?"
+"Donne-moi un résumé de l'état d'avancement des projets" / "Give me a summary of project progress"
+Fonctionnalités
+Support bilingue : questions en français ou en anglais
+Filtrage automatique :
+Détection des mots-clés "retard", "late", "overdue" pour filtrer les tâches en retard
+Détection des noms de propriétaires dans la question
+Transparence : affichage des données utilisées pour construire la réponse
+Réponses basées sur les données : le LLM ne génère que des réponses basées sur les données de la base
+
+Limites
+
+Analyse des 10 dernières réunions
+Analyse des 30 derniers TODOs
+Analyse des 30 dernières décisions
+Les réponses sont limitées aux données présentes dans la base de données
+Le module est conçu pour répondre à des questions naturelles sur vos réunions, décisions et actions, en français ou en anglais.

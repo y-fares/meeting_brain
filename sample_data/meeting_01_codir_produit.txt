@@ -1,0 +1,73 @@
+Date : 12 février 2025
+Participants : Karim (CPO), Sarah (PM), Lucie (Lead Design), Julien (Data Lead), Hicham (CTO)
+
+1. Contexte
+
+Point mensuel sur l'avancement du produit SAAS interne, roadmap Q2 et arbitrages nécessaires suite au retard du sprint précédent.
+
+2. Ordre du jour
+
+Avancement sprint actuel
+
+Retard sur le module "Reporting temps réel"
+
+Ajustement roadmap Q2
+
+Analyse des retours utilisateurs (janvier)
+
+Décisions prioritaires
+
+3. Discussions
+
+Retard sprint :
+Julien explique que la partie "agrégation temps réel" prend 30% de charge supplémentaire à cause de pics de données non anticipés.
+Hicham propose d'introduire un mécanisme de "sampling" temporaire.
+Sarah insiste sur la nécessité de garder un niveau de granularité acceptable pour les clients.
+
+Roadmap Q2 :
+Karim veut avancer la fonctionnalité "Alertes intelligentes" car la concurrence propose déjà cette brique.
+Lucie rappelle que le parcours utilisateur actuel est fragile et qu'il faut prioriser un redesign partiel avant d'ajouter de la complexité.
+
+Feedback utilisateurs :
+Les utilisateurs réclament :
+
+des exports CSV plus rapides
+
+une personnalisation des dashboards
+
+un onboarding simplifié
+
+4. Décisions
+
+Introduire un mécanisme temporaire de sampling de données jusqu'à stabilisation du pipeline.
+
+Revoir la priorisation Q2 :
+
+Redesign partiel UX
+
+Alertes intelligentes
+
+Amélioration des exports
+
+Démarrer une expérimentation sur la personnalisation basique des dashboards.
+
+5. Actions (TODOs)
+
+Julien → intégrer le sampling (deadline : 2025-02-18)
+
+Lucie → proposer un wireframe du redesign (deadline : 2025-02-20)
+
+Sarah → mettre à jour la roadmap Q2 (deadline : 2025-02-14)
+
+Karim → préparer une note stratégique sur les alertes intelligentes (deadline : 2025-02-25)
+
+6. Risques
+
+Dégradation temporaire de la précision des KPIs due au sampling.
+
+Surcroît de charge sur l'équipe Data.
+
+7. Prochaines étapes
+
+Prochaine réunion le 3 mars 2025.
+

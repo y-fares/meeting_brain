@@ -1,0 +1,56 @@
+Date : 4 février 2025
+Participants : Samir (Chef de projet), Mélanie (Infra), Paul (Sécurité), Idriss (Développeur), Anne (FinOps)
+
+1. Contexte
+
+Revue d’avancement de la migration vers un cluster Kubernetes multi-régions.
+
+2. Ordre du jour
+
+Suivi des environnements
+
+Problème sur les logs applicatifs
+
+Chiffrage du coût prévisionnel
+
+Plan de bascule
+
+3. Discussions
+
+Environnements : staging est stable, mais production a des lenteurs réseau entre régions.
+
+Logs applicatifs : duplication non voulue → surcoût estimé de 12%.
+
+FinOps : Anne propose un modèle d’optimisation basé sur des instances spot.
+
+Sécurité : Paul demande une revue IAM complète (trop de droits admin attribués).
+
+Bascule : Samir veut maintenir la date du 28/02, mais Mélanie conseille un report.
+
+4. Décisions
+
+Nettoyer règles de réplication des logs
+
+Lancer revue IAM complète
+
+Reporter la bascule à 2025-03-05
+
+Tester instances spot en staging
+
+5. Actions
+
+Mélanie → corriger la duplication logs (deadline : 2025-02-11)
+
+Paul → lancer audit IAM (deadline : 2025-02-15)
+
+Anne → chiffrage complet modèle spot (deadline : 2025-02-19)
+
+Samir → mise à jour du plan de bascule (deadline : 2025-02-07)
+
+6. Risques
+
+Explosion des coûts si logs restent en double
+
+Basculer trop tôt impactera SLA
+
+Droits IAM trop permissifs = risque majeur

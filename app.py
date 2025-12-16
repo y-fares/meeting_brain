@@ -24,6 +24,9 @@ from dotenv import load_dotenv
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
 
+from utils_json import parse_decisions, parse_todos
+from services.text_pipeline import preprocess_text
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -84,91 +87,8 @@ def _strip_json_fence(text: str) -> str:
 # Feature 2: NLP preprocessing
 # ---------------------------------------------------------------------------
 
-
-def preprocess_text(raw_text: str) -> Dict[str, Any]:
-    """
-    Clean and preprocess raw text using NLP techniques.
-
-    Args:
-        raw_text: The raw input text to preprocess
-
-    Returns:
-        A dictionary containing cleaned text, tokens, and statistics.
-    """
-    # Strip leading/trailing spaces
-    text = raw_text.strip()
-
-    # Normalize multiple spaces and newlines
-    text = re.sub(r"\s+", " ", text)  # Replace multiple spaces/newlines with single space
-    text = re.sub(r"\n+", "\n", text)  # Normalize multiple newlines
-
-    # Lowercase the text
-    clean_text = text.lower()
-
-    # Tokenize the text
-    tokens_raw = word_tokenize(clean_text) if clean_text else []
-
-    # Load stopwords for English and French
-    try:
-        stop_words_en = set(stopwords.words("english"))
-        stop_words_fr = set(stopwords.words("french"))
-        stop_words = stop_words_en.union(stop_words_fr)
-    except LookupError:
-        stop_words = set()
-
-    # Filter out stopwords and punctuation-only tokens
-    tokens_filtered = [
-        token for token in tokens_raw
-        if token not in stop_words and token.isalnum()
-    ]
-
-    # Calculate basic statistics
-    num_chars = len(clean_text)
-    num_lines = len(clean_text.splitlines())
-    num_tokens_raw = len(tokens_raw)
-    num_tokens_filtered = len(tokens_filtered)
-
-    # Calculate additional statistics
-    unique_words_raw = len(set(tokens_raw))
-    unique_words_filtered = len(set(tokens_filtered))
-
-    # Lexical diversity (unique words / total words)
-    lexical_diversity_raw = unique_words_raw / num_tokens_raw if num_tokens_raw > 0 else 0
-    lexical_diversity_filtered = unique_words_filtered / num_tokens_filtered if num_tokens_filtered > 0 else 0
-
-    # Average word length
-    avg_word_length = sum(len(token) for token in tokens_filtered) / num_tokens_filtered if num_tokens_filtered > 0 else 0
-
-    # Average sentence length (in words)
-    try:
-        sentences = sent_tokenize(clean_text)
-        num_sentences = len(sentences)
-        avg_sentence_length = num_tokens_raw / num_sentences if num_sentences > 0 else 0
-    except Exception:
-        num_sentences = 0
-        avg_sentence_length = 0
-
-    # Top 10 most frequent words (filtered)
-    word_freq = Counter(tokens_filtered)
-    top_words = word_freq.most_common(10)
-
-    return {
-        "clean_text": clean_text,
-        "tokens_raw": tokens_raw,
-        "tokens_filtered": tokens_filtered,
-        "num_chars": num_chars,
-        "num_lines": num_lines,
-        "num_tokens_raw": num_tokens_raw,
-        "num_tokens_filtered": num_tokens_filtered,
-        "unique_words_raw": unique_words_raw,
-        "unique_words_filtered": unique_words_filtered,
-        "lexical_diversity_raw": lexical_diversity_raw,
-        "lexical_diversity_filtered": lexical_diversity_filtered,
-        "avg_word_length": avg_word_length,
-        "num_sentences": num_sentences,
-        "avg_sentence_length": avg_sentence_length,
-        "top_words": top_words,
-    }
+# Import from services.text_pipeline to avoid duplication
+from services.text_pipeline import preprocess_text
 
 
 # ---------------------------------------------------------------------------
@@ -257,22 +177,8 @@ def extract_decisions(clean_text: str) -> List[str]:
         if not raw_output:
             return []
 
-        # Parse JSON
-        try:
-            parsed = json.loads(_strip_json_fence(raw_output))
-            decisions = parsed.get("decisions", [])
-
-            if not isinstance(decisions, list):
-                LOGGER.warning("'decisions' field is not a list")
-                LOGGER.info("Raw LLM response: %s", raw_output)
-                return []
-
-            return [str(dec).strip() for dec in decisions if str(dec).strip()]
-
-        except json.JSONDecodeError as json_err:
-            LOGGER.error("Failed to parse decisions JSON: %s", json_err)
-            LOGGER.info("Raw LLM response: %s", raw_output)
-            return []
+        # Parse JSON using safe parsing utility
+        return parse_decisions(raw_output)
 
     except Exception as exc:
         LOGGER.exception("Error while extracting decisions: %s", exc)
@@ -324,40 +230,8 @@ def extract_todos(clean_text: str) -> List[Dict[str, str]]:
         if not raw_output:
             return []
 
-        # Parse JSON
-        try:
-            parsed = json.loads(_strip_json_fence(raw_output))
-            todos = parsed.get("todos", [])
-
-            if not isinstance(todos, list):
-                LOGGER.warning("'todos' field is not a list")
-                LOGGER.info("Raw LLM response: %s", raw_output)
-                return []
-
-            # Normalize and validate each todo
-            normalized_todos = []
-            for todo in todos:
-                if not isinstance(todo, dict):
-                    continue
-
-                task = str(todo.get("task", "")).strip()
-                owner = str(todo.get("owner", "")).strip()
-                due_date = str(todo.get("due_date", "")).strip()
-
-                # Only add todos with a non-empty task
-                if task:
-                    normalized_todos.append({
-                        "task": task,
-                        "owner": owner if owner else "",
-                        "due_date": due_date if due_date else "",
-                    })
-
-            return normalized_todos
-
-        except json.JSONDecodeError as json_err:
-            LOGGER.error("Failed to parse todos JSON: %s", json_err)
-            LOGGER.info("Raw LLM response: %s", raw_output)
-            return []
+        # Parse JSON using safe parsing utility
+        return parse_todos(raw_output)
 
     except Exception as exc:
         LOGGER.exception("Error while extracting todos: %s", exc)
@@ -477,7 +351,7 @@ def main() -> None:
     st.sidebar.markdown("### 📋 Navigation")
     page = st.sidebar.radio(
         "Choisir une page",
-        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync"],
+        ["Analyze Meeting", "History", "All TODOs", "Kanban Sync", "Q&A", "Analytics", "Todo Events", "Insights", "Demo"],
         label_visibility="visible",
         index=0
     )
@@ -498,6 +372,31 @@ def main() -> None:
     if page == "Kanban Sync":
         from views.kanban import render_kanban_view
         render_kanban_view()
+        return
+    
+    if page == "Q&A":
+        from views.qa import render_qa_view
+        render_qa_view()
+        return
+    
+    if page == "Analytics":
+        from views.analytics import render_analytics_view
+        render_analytics_view()
+        return
+    
+    if page == "Todo Events":
+        from views.todo_events import render_todo_events_view
+        render_todo_events_view()
+        return
+    
+    if page == "Insights":
+        from views.insights import render_insights_view
+        render_insights_view()
+        return
+    
+    if page == "Demo":
+        from views.demo import render_demo_view
+        render_demo_view()
         return
     
     # Default: Analyze Meeting mode

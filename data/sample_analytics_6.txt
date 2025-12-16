@@ -1,0 +1,28 @@
+Réunion Urgente - Incident Production
+
+Date: 2025-02-18
+
+Participants:
+- Yacine (Lead Developer)
+- Paul (DevOps)
+- Mélanie (Infrastructure)
+- Karim (Product Owner)
+
+Points discutés:
+- Incident critique sur la production
+- Impact utilisateurs
+- Cause racine identifiée
+- Plan de résolution
+
+Décisions:
+- Rollback immédiat vers la version précédente
+- Investigation approfondie de la cause
+- Mise en place de tests supplémentaires
+- Communication aux utilisateurs
+
+Actions:
+- Paul : effectuer le rollback (deadline: 2025-02-18) - STATUS: completed
+- Yacine : investiguer la cause racine (deadline: 2025-02-19) - STATUS: completed
+- Mélanie : renforcer les tests de charge (deadline: 2025-02-20)
+- Karim : communiquer aux utilisateurs (deadline: 2025-02-18) - STATUS: completed
+

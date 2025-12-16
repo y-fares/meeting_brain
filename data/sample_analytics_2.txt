@@ -1,0 +1,28 @@
+Réunion Technique Architecture
+
+Date: 2025-01-20
+
+Participants:
+- Yacine (Lead Developer)
+- Julien (Data Engineer)
+- Paul (DevOps)
+- Mélanie (Infrastructure)
+
+Points discutés:
+- Choix de la stack technique
+- Architecture microservices vs monolithique
+- Gestion de la base de données
+- Stratégie de déploiement
+
+Décisions:
+- Adopter une architecture microservices avec Kubernetes
+- Utiliser PostgreSQL comme base de données principale
+- Mettre en place CI/CD avec GitLab
+- Choisir Docker pour la containerisation
+
+Actions:
+- Yacine : documenter l'architecture technique (deadline: 2025-01-25)
+- Julien : configurer la base de données PostgreSQL (deadline: 2025-01-23)
+- Paul : mettre en place le cluster Kubernetes (deadline: 2025-01-28)
+- Mélanie : préparer l'infrastructure cloud (deadline: 2025-01-26)
+
