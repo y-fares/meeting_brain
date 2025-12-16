@@ -32,12 +32,58 @@ L'application s'intègre nativement avec **Notion** pour une gestion complète d
   - **Vue Kanban Sync** : Interface dédiée pour visualiser et synchroniser le Kanban Notion avec la DB
 - **Détection automatique** : Identification automatique des propriétés Kanban (Status/Select) dans votre base Notion
 
+### 💬 Q&A Engine
+
+- **Questions sur les réunions** : Posez des questions en langage naturel sur vos réunions, décisions et TODOs
+- **Réponses basées sur les données** : Les réponses sont générées uniquement à partir des données stockées dans la base
+- **Support multi-LLM** : Compatible avec Groq et Google Gemini
+- **Contexte intelligent** : Le moteur construit automatiquement un contexte à partir des réunions pertinentes
+
+### 📈 Analytics & Exports
+
+- **KPIs en temps réel** : Visualisation des métriques clés (nombre de réunions, TODOs, décisions)
+- **Tableaux récapitulatifs** : Vue d'ensemble des réunions, TODOs et décisions
+- **Exports CSV** : Export des données pour analyse dans des outils BI (Excel, Tableau, etc.)
+- **Filtres avancés** : Filtrage par date, statut, propriétaire, etc.
+
+### 🧠 Insights Engine
+
+- **Questions sur l'état du projet** : Posez des questions sur les tâches en retard, goulots d'étranglement, charge de travail
+- **Détection d'intention** : Reconnaissance automatique du type de question (overdue, bottlenecks, workload, etc.)
+- **Réponses structurées** : Réponses avec KPIs, preuves et actions recommandées
+- **Mode LLM optionnel** : Amélioration des réponses avec LLM si nécessaire
+- **Statistiques de charge** : Visualisation de la charge de travail par propriétaire
+- **Détection de goulots d'étranglement** : Identification automatique des blocages
+
+### 📅 Todo Events
+
+- **Historique des événements** : Suivi complet de tous les changements de statut des TODOs
+- **Timestamps détaillés** : Enregistrement de la création, reconnaissance et complétion
+- **Audit trail** : Traçabilité complète des actions sur les TODOs
+
+### 🚀 API REST (FastAPI)
+
+- **API REST complète** : Endpoints pour accéder à toutes les données (meetings, todos, decisions, analytics)
+- **Authentification optionnelle** : Protection par token Bearer (configurable)
+- **Documentation interactive** : Swagger UI disponible sur `/docs`
+- **Health check** : Endpoint de santé publique
+- **Gestion d'erreurs standardisée** : Réponses d'erreur cohérentes
+
+### 💬 Intégration Slack
+
+- **Slash Command `/insights`** : Interrogez l'Insights Engine directement depuis Slack
+- **Réponses formatées** : Messages Slack structurés avec blocks (KPIs, actions recommandées, preuves)
+- **Sécurité** : Vérification des signatures Slack (HMAC SHA256)
+- **Mode développement** : Fonctionne sans signature en dev (avec avertissement)
+- **Support LLM** : Option `--llm` pour améliorer les réponses
+
 ## 🚀 Installation
 
 ### Prérequis
 - Python 3.8 ou supérieur
 - Compte Groq (pour l'API Groq)
-- Compte Notion (pour l'intégration Notion)
+- Compte Notion (pour l'intégration Notion, optionnel)
+- Compte Slack (pour l'intégration Slack, optionnel)
 
 ### Étapes d'installation
 
@@ -71,9 +117,15 @@ L'application s'intègre nativement avec **Notion** pour une gestion complète d
    GROQ_API_KEY=your_groq_api_key_here
    GROQ_MODEL=llama-3.1-8b-instant
    
-   # Notion API (requis pour l'intégration)
+   # Notion API (optionnel, pour l'intégration Notion)
    NOTION_API_KEY=your_notion_api_key
    NOTION_DATABASE_ID=your_notion_database_id
+   
+   # API Authentication (optionnel, pour protéger l'API)
+   API_AUTH_TOKEN=your_api_auth_token
+   
+   # Slack Integration (optionnel, pour l'intégration Slack)
+   SLACK_SIGNING_SECRET=your_slack_signing_secret
    ```
 
 ### Obtenir les clés API
@@ -84,7 +136,7 @@ L'application s'intègre nativement avec **Notion** pour une gestion complète d
 3. Générer une clé API dans la section "API Keys"
 4. Copier la clé dans votre fichier `.env`
 
-#### Notion API
+#### Notion API (optionnel)
 1. Aller sur [Notion Integrations](https://www.notion.so/my-integrations)
 2. Créer une nouvelle intégration (ou utiliser une existante)
 3. Copier le "Internal Integration Token" (commence par `ntn_`)
@@ -97,6 +149,20 @@ L'application s'intègre nativement avec **Notion** pour une gestion complète d
    - L'ID est la chaîne de 32 caractères hexadécimaux dans l'URL
    - Format : `https://www.notion.so/[workspace]/[32-char-id]?v=...`
 7. Ajouter `NOTION_API_KEY` et `NOTION_DATABASE_ID` dans votre fichier `.env`
+
+#### Slack API (optionnel)
+1. Aller sur [Slack API](https://api.slack.com/apps)
+2. Créer une nouvelle app ou sélectionner une app existante
+3. Aller dans "Basic Information" → "App Credentials"
+4. Copier le "Signing Secret" (commence par un long hash)
+5. Ajouter `SLACK_SIGNING_SECRET` dans votre fichier `.env`
+6. Configurer un Slash Command :
+   - Aller dans "Slash Commands" → "Create New Command"
+   - Command: `/insights`
+   - Request URL: `https://votre-domaine.com/slack/commands` (ou votre URL ngrok pour les tests)
+   - Short Description: `Query project insights`
+   - Usage Hint: `question (ex: Quelles tâches sont en retard ?)`
+   - Sauvegarder
 
 ## 📖 Utilisation
 
@@ -122,12 +188,17 @@ pytest -q
 
 ### Navigation
 
-L'application propose 4 vues principales accessibles via la barre latérale :
+L'application propose 9 vues principales accessibles via la barre latérale :
 
 1. **Analyze Meeting** : Analyse de nouvelles réunions
 2. **History** : Consultation de l'historique des réunions
 3. **All TODOs** : Gestion de tous les TODOs
 4. **Kanban Sync** : Synchronisation avec Notion Kanban
+5. **Q&A** : Posez des questions sur vos réunions et TODOs
+6. **Analytics** : KPIs et exports CSV pour analyse BI
+7. **Todo Events** : Historique des événements sur les TODOs
+8. **Insights** : Questions sur l'état du projet (tâches en retard, goulots d'étranglement, etc.)
+9. **Demo** : Chargement de données de démonstration
 
 ### Workflow principal
 
@@ -171,38 +242,110 @@ L'application propose 4 vues principales accessibles via la barre latérale :
    - Le mapping des propriétés s'adapte automatiquement à votre base de données Notion
    - Les statuts sont synchronisés automatiquement entre la DB et Notion
 
+6. **Q&A sur les réunions**
+   - Naviguer vers la page "Q&A"
+   - Poser des questions en langage naturel sur vos réunions, décisions et TODOs
+   - Les réponses sont générées uniquement à partir des données de la base
+
+7. **Analytics et Exports**
+   - Naviguer vers la page "Analytics"
+   - Consulter les KPIs (nombre de réunions, TODOs, décisions)
+   - Exporter les données en CSV pour analyse dans des outils BI
+
+8. **Insights sur le projet**
+   - Naviguer vers la page "Insights"
+   - Poser des questions sur l'état du projet (tâches en retard, goulots d'étranglement, charge de travail)
+   - Consulter les statistiques de charge par propriétaire
+   - Visualiser les goulots d'étranglement détectés
+
+9. **Utiliser l'API REST**
+   - Lancer l'API avec `uvicorn api.main:app --reload`
+   - Accéder à la documentation interactive sur `http://localhost:8000/docs`
+   - Utiliser les endpoints pour intégrer avec d'autres outils
+
+10. **Intégration Slack**
+    - Configurer le Slash Command `/insights` dans Slack
+    - Utiliser `/insights <question>` dans Slack pour interroger l'Insights Engine
+    - Ajouter `--llm` pour améliorer les réponses avec LLM
+
 ## 📁 Structure du Projet
 
 ```
 PSTB_Project/
 ├── app.py                      # Application principale Streamlit
 ├── database.py                 # Modèles SQLAlchemy et helpers
+├── qa_engine.py                # Moteur Q&A pour questions sur les réunions
+├── schemas.py                  # Schémas Pydantic pour validation
+├── utils_json.py               # Utilitaires JSON
+├── llm_providers.py            # Abstraction des fournisseurs LLM (Groq, Gemini)
 ├── requirements.txt            # Dépendances Python
+├── requirements-dev.txt        # Dépendances de développement
 ├── .env                        # Variables d'environnement (à créer)
 ├── meeting_brain.db            # Base de données SQLite (générée automatiquement)
+├── api/                        # API REST FastAPI
+│   ├── main.py                 # Point d'entrée FastAPI
+│   ├── deps.py                 # Dépendances (DB, auth)
+│   ├── security.py             # Authentification API
+│   ├── slack_security.py       # Vérification signatures Slack
+│   ├── errors.py               # Gestion d'erreurs standardisée
+│   ├── dtos.py                 # Data Transfer Objects
+│   ├── repositories.py         # Couche d'accès aux données
+│   └── routes/                 # Routes API
+│       ├── health.py           # Health check
+│       ├── meetings.py         # Endpoints réunions
+│       ├── todos.py            # Endpoints TODOs
+│       ├── decisions.py        # Endpoints décisions
+│       ├── analytics.py        # Endpoints analytics
+│       ├── exports.py          # Endpoints exports CSV
+│       ├── insights.py         # Endpoints Insights Engine
+│       └── slack.py            # Endpoints Slack
+├── services/                   # Services métier
+│   ├── insights_engine.py      # Moteur Insights (Feature 21)
+│   ├── text_pipeline.py        # Pipeline de traitement de texte
+│   └── demo_loader.py          # Chargement données de démo
+├── views/                      # Vues Streamlit
+│   ├── history.py              # Vue historique des réunions
+│   ├── todos.py                # Vue gestion des TODOs
+│   ├── kanban.py               # Vue synchronisation Kanban Notion
+│   ├── qa.py                   # Vue Q&A
+│   ├── analytics.py            # Vue Analytics
+│   ├── todo_events.py          # Vue événements TODOs
+│   ├── insights.py             # Vue Insights
+│   └── demo.py                 # Vue démonstration
+├── integrations/               # Intégrations externes
+│   ├── notion_client.py        # Client Notion API (avec sync bidirectionnelle)
+│   └── trello_client.py        # Client Trello API (optionnel)
+├── tests/                      # Tests unitaires et d'intégration
+│   ├── conftest.py             # Configuration pytest
+│   ├── test_api_*.py           # Tests API
+│   ├── test_insights_engine.py  # Tests Insights Engine
+│   ├── test_qa_engine.py       # Tests Q&A Engine
+│   ├── test_slack_*.py         # Tests Slack
+│   └── ...
 ├── data/                       # Exemples de notes de réunion
 │   ├── meeting_1.txt
 │   ├── meeting_2.txt
 │   └── ...
-├── views/                      # Vues Streamlit
-│   ├── history.py              # Vue historique des réunions
-│   ├── todos.py                # Vue gestion des TODOs
-│   └── kanban.py               # Vue synchronisation Kanban Notion
-└── integrations/               # Intégrations externes
-    └── notion_client.py        # Client Notion API (avec sync bidirectionnelle)
+└── sample_data/                # Données de démonstration
+    └── ...
 ```
 
 ## 🛠️ Technologies Utilisées
 
 - **Streamlit** : Framework web pour l'interface utilisateur
+- **FastAPI** : Framework moderne pour l'API REST
 - **Groq** : Modèle de langage pour l'extraction d'informations
+- **Google Gemini** : Alternative LLM (optionnel)
 - **NLTK** : Bibliothèque de traitement du langage naturel
 - **SQLAlchemy** : ORM pour la gestion de la base de données
+- **Pydantic** : Validation de données et schémas
 - **Pandas** : Manipulation et analyse de données
 - **NumPy** : Calculs numériques
 - **Notion Client** : Client Python pour l'API Notion
 - **Requests** : Client HTTP pour les appels API
 - **Python-dotenv** : Gestion des variables d'environnement
+- **HMAC/SHA256** : Vérification des signatures Slack
+- **Pytest** : Framework de tests
 
 ## 📊 Modèles de Données
 
@@ -232,6 +375,12 @@ PSTB_Project/
 - `id` : Identifiant unique
 - `meeting_id` : Référence à la réunion
 - `name` : Nom du participant
+
+### TodoEvent
+- `id` : Identifiant unique
+- `todo_id` : Référence au TODO
+- `event_type` : Type d'événement (created, acknowledged, completed)
+- `timestamp` : Date et heure de l'événement
 
 ## 🔧 Configuration Avancée
 
@@ -282,6 +431,19 @@ rm meeting_brain.db
 - Le mapping est insensible à la casse et gère les accents
 - Consultez les logs pour plus de détails
 
+### Erreur "dispatch_failed" dans Slack
+- Vérifiez que l'URL dans la configuration Slack est correcte : `https://votre-domaine.com/slack/commands`
+- Vérifiez que votre serveur FastAPI est accessible (testez avec `curl`)
+- Vérifiez que `SLACK_SIGNING_SECRET` est correctement configuré dans `.env`
+- En mode dev (sans `SLACK_SIGNING_SECRET`), l'API accepte les requêtes mais log un avertissement
+- Vérifiez les logs du serveur pour voir les erreurs détaillées
+
+### Erreur API "Not Found"
+- Vérifiez que vous utilisez les bons préfixes d'URL :
+  - `/insights/answer` (pas `/insights/insights/answer`)
+  - `/slack/commands` (pas `/slack/slack/commands`)
+- Consultez la documentation interactive sur `http://localhost:8000/docs` pour voir tous les endpoints disponibles
+
 ### Problèmes avec NLTK
 - Les ressources NLTK sont téléchargées automatiquement au premier lancement
 - Si cela échoue, téléchargez manuellement :
@@ -320,6 +482,49 @@ rm meeting_brain.db
 - ✅ Mapping dynamique des propriétés Notion
 - ✅ Support multi-langue pour les statuts Notion
 
+### Sprint 4-5
+- ✅ API REST FastAPI complète
+- ✅ Endpoints pour meetings, todos, decisions
+- ✅ Authentification optionnelle par token Bearer
+- ✅ Documentation interactive (Swagger UI)
+- ✅ Gestion d'erreurs standardisée
+- ✅ Health check endpoint
+
+### Sprint 6-7
+- ✅ Q&A Engine pour questions sur les réunions
+- ✅ Support multi-LLM (Groq, Gemini)
+- ✅ Construction automatique de contexte
+- ✅ Vue Q&A dans Streamlit
+
+### Sprint 8-9
+- ✅ Analytics & Exports
+- ✅ KPIs en temps réel
+- ✅ Exports CSV pour outils BI
+- ✅ Vue Analytics dans Streamlit
+- ✅ Endpoints API pour exports
+
+### Sprint 10-11
+- ✅ Todo Events tracking
+- ✅ Historique complet des changements de statut
+- ✅ Timestamps détaillés (created, acknowledged, completed)
+- ✅ Vue Todo Events dans Streamlit
+
+### Sprint 12
+- ✅ Insights Engine (Feature 21)
+  - Détection d'intention automatique
+  - Réponses structurées avec KPIs et preuves
+  - Mode LLM optionnel
+  - Statistiques de charge par propriétaire
+  - Détection de goulots d'étranglement
+  - Vue Insights dans Streamlit
+  - Endpoints API `/insights/*`
+- ✅ Intégration Slack (Feature 22)
+  - Slash Command `/insights`
+  - Vérification des signatures Slack (HMAC SHA256)
+  - Messages Slack formatés avec blocks
+  - Support du flag `--llm`
+  - Endpoints `/slack/commands` et `/slack/events`
+
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues ! N'hésitez pas à :
@@ -351,12 +556,14 @@ pip install -r requirements-dev.txt
 
 ### Configuration
 
-1. Copier `.env.example` vers `.env`
+1. Créer un fichier `.env` à la racine du projet
 2. Configurer les variables d'environnement dans `.env`:
-   - `MEETING_BRAIN_DB_URL`: URL de la base de données (SQLite par défaut)
-   - `API_AUTH_TOKEN`: Token d'authentification pour l'API (optionnel en dev)
-   - `GROQ_API_KEY`: Clé API Groq pour l'extraction LLM
+   - `GROQ_API_KEY`: Clé API Groq pour l'extraction LLM (requis)
+   - `GROQ_MODEL`: Modèle Groq à utiliser (défaut: `llama-3.1-8b-instant`)
    - `NOTION_API_KEY` et `NOTION_DATABASE_ID`: Pour l'intégration Notion (optionnel)
+   - `API_AUTH_TOKEN`: Token d'authentification pour l'API (optionnel en dev)
+   - `SLACK_SIGNING_SECRET`: Secret de signature Slack (optionnel, pour l'intégration Slack)
+   - `GOOGLE_API_KEY`: Clé API Google pour Gemini (optionnel, pour Q&A avec Gemini)
 
 ### Lancer l'application Streamlit
 
@@ -378,7 +585,7 @@ L'API sera accessible sur `http://localhost:8000`
 
 ### Utilisation de l'API avec authentification
 
-Si `API_AUTH_TOKEN` est défini dans `.env`, tous les endpoints (sauf `/health`) nécessitent un token Bearer:
+Si `API_AUTH_TOKEN` est défini dans `.env`, tous les endpoints (sauf `/health` et `/slack/*`) nécessitent un token Bearer:
 
 ```bash
 # Exemple avec curl
@@ -391,6 +598,54 @@ response = requests.get("http://localhost:8000/meetings", headers=headers)
 ```
 
 Si `API_AUTH_TOKEN` n'est pas défini, l'API fonctionne en mode développement (pas d'authentification requise).
+
+**Note** : Les endpoints `/slack/*` sont protégés par la vérification des signatures Slack et ne nécessitent pas `API_AUTH_TOKEN`.
+
+### Endpoints API disponibles
+
+- **Health** : `GET /health` (public, pas d'auth)
+- **Meetings** : `GET /meetings`, `GET /meetings/{id}`
+- **TODOs** : `GET /todos`, `GET /todos/{id}`
+- **Decisions** : `GET /decisions`, `GET /decisions/{id}`
+- **Analytics** : `GET /analytics/kpis`, `GET /analytics/summary`
+- **Exports** : `GET /exports/meetings`, `GET /exports/todos`, `GET /exports/decisions`
+- **Insights** : 
+  - `GET /insights/answer?q=<question>&use_llm=<bool>`
+  - `GET /insights/owner_load`
+  - `GET /insights/bottlenecks`
+- **Slack** :
+  - `POST /slack/commands` (Slash Command handler)
+  - `POST /slack/events` (Events API handler)
+
+Consultez la documentation interactive sur `http://localhost:8000/docs` pour plus de détails.
+
+### Utilisation de l'intégration Slack
+
+1. **Configurer le Slash Command dans Slack** :
+   - Aller dans votre app Slack → "Slash Commands" → "Create New Command"
+   - Command: `/insights`
+   - Request URL: `https://votre-domaine.com/slack/commands` (ou votre URL ngrok pour les tests)
+   - Short Description: `Query project insights`
+   - Usage Hint: `question (ex: Quelles tâches sont en retard ?)`
+
+2. **Tester localement avec ngrok** :
+   ```bash
+   # Terminal 1: Lancer l'API
+   uvicorn api.main:app --reload
+   
+   # Terminal 2: Lancer ngrok
+   ngrok http 8000
+   
+   # Utiliser l'URL ngrok dans la configuration Slack
+   # Exemple: https://ruly-noncommunicative-roxana.ngrok-free.dev/slack/commands
+   ```
+
+3. **Utiliser la commande dans Slack** :
+   ```
+   /insights Quelles tâches sont en retard ?
+   /insights Qui est surchargé ? --llm
+   /insights Qu'est-ce qui est bloqué ?
+   ```
 
 ### Tests
 
