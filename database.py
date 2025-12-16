@@ -138,6 +138,14 @@ def _migrate_todos_table() -> None:
                 conn.commit()
             LOGGER.info("Successfully added 'trello_card_id' column to todos table")
         
+        # Add notion_page_id if missing
+        if "notion_page_id" not in existing_columns:
+            LOGGER.info("Adding missing column 'notion_page_id' to todos table")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE todos ADD COLUMN notion_page_id TEXT"))
+                conn.commit()
+            LOGGER.info("Successfully added 'notion_page_id' column to todos table")
+        
     except Exception as exc:
         LOGGER.exception("Error while migrating todos table: %s", exc)
         # Don't raise - allow app to continue even if migration fails
