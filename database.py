@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from typing import List, Optional
@@ -105,9 +105,42 @@ def ensure_schema() -> None:
     """
     Ensure required tables exist for the current version of the app.
     For SQLite, create missing tables if they don't exist.
+    Also handles schema migrations for existing tables.
     This must be idempotent.
     """
+    # Create all tables if they don't exist
     Base.metadata.create_all(bind=engine)
+    
+    # Migrate existing tables if needed
+    _migrate_todos_table()
+
+
+def _migrate_todos_table() -> None:
+    """
+    Migrate the todos table to add missing columns.
+    This handles schema changes for existing databases.
+    """
+    try:
+        inspector = inspect(engine)
+        
+        # Check if todos table exists
+        if not inspector.has_table("todos"):
+            return
+        
+        # Get existing columns
+        existing_columns = [col["name"] for col in inspector.get_columns("todos")]
+        
+        # Add trello_card_id if missing
+        if "trello_card_id" not in existing_columns:
+            LOGGER.info("Adding missing column 'trello_card_id' to todos table")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE todos ADD COLUMN trello_card_id TEXT"))
+                conn.commit()
+            LOGGER.info("Successfully added 'trello_card_id' column to todos table")
+        
+    except Exception as exc:
+        LOGGER.exception("Error while migrating todos table: %s", exc)
+        # Don't raise - allow app to continue even if migration fails
 
 
 def log_todo_event(
@@ -344,15 +377,6 @@ def add_participants(session: Session, meeting_id: int, participants: List[str])
         session.rollback()
         LOGGER.exception("Error while adding participants: %s", exc)
         raise
-
-
-def ensure_schema() -> None:
-    """
-    Ensure required tables exist for the current version of the app.
-    For SQLite, create missing tables if they don't exist.
-    This must be idempotent.
-    """
-    Base.metadata.create_all(bind=engine)
 
 
 def log_todo_event(
