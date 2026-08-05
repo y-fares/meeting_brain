@@ -10,9 +10,39 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, or_
 
 from database import Todo, Meeting, TodoEvent, User
-from api.repositories import compute_kpis
 
 LOGGER = logging.getLogger(__name__)
+
+
+def compute_kpis(session: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
+    """Compute project KPIs from database."""
+    try:
+        meetings_query = session.query(Meeting)
+        todos_query = session.query(Todo).join(Meeting, Todo.meeting_id == Meeting.id)
+        decisions_query = session.query(Todo).join(Meeting, Todo.meeting_id == Meeting.id)
+
+        if current_user and current_user.role != "admin":
+            meetings_query = meetings_query.filter(Meeting.created_by_user_id == current_user.id)
+            todos_query = todos_query.filter(
+                or_(
+                    Todo.assigned_user_id == current_user.id,
+                    Meeting.created_by_user_id == current_user.id,
+                )
+            )
+
+        num_meetings = meetings_query.count()
+        num_todos = todos_query.count()
+        num_completed = todos_query.filter(Todo.status == "completed").count()
+
+        return {
+            "num_meetings": num_meetings,
+            "num_todos": num_todos,
+            "num_completed": num_completed,
+            "num_pending": num_todos - num_completed,
+        }
+    except Exception as exc:
+        LOGGER.error("Error computing KPIs: %s", exc)
+        return {"num_meetings": 0, "num_todos": 0, "num_completed": 0, "num_pending": 0}
 
 
 def _can_see_all(user: Optional[User]) -> bool:
