@@ -1,6 +1,9 @@
 """
 LLM provider abstraction for Meeting Brain.
-Supports multiple LLM providers: Gemini and Groq.
+Supports: Groq, Mistral, Gemini.
+
+Provider selection via LLM_PROVIDER env var, or auto-detected from available keys.
+Priority: groq → mistral → gemini
 """
 
 import logging
@@ -9,183 +12,179 @@ import json
 from typing import Optional, Tuple
 from dotenv import load_dotenv
 
-# Setup logging
 LOGGER = logging.getLogger(__name__)
-
-# Load environment variables
 load_dotenv()
 
-# Gemini configuration
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-pro")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# --- Configuration ---
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "").lower()
 
-# Groq configuration
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
-# Initialize Gemini if available
-try:
-    if GOOGLE_API_KEY:
-        import google.generativeai as genai
-        genai.configure(api_key=GOOGLE_API_KEY)
-        gemini_available = True
-    else:
-        gemini_available = False
-        LOGGER.warning("GOOGLE_API_KEY not set. Gemini provider will not be available.")
-except Exception as exc:
-    gemini_available = False
-    LOGGER.error("Failed to initialize Gemini: %s", exc)
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
 
-# Initialize Groq if available
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-pro")
+
+# --- Provider initialization ---
+
+groq_available = False
+groq_client = None
 try:
     if GROQ_API_KEY:
         from groq import Groq
         groq_client = Groq(api_key=GROQ_API_KEY)
         groq_available = True
     else:
-        groq_client = None
-        groq_available = False
-        LOGGER.warning("GROQ_API_KEY not set. Groq provider will not be available.")
+        LOGGER.warning("GROQ_API_KEY not set — Groq unavailable.")
 except Exception as exc:
-    groq_client = None
-    groq_available = False
     LOGGER.error("Failed to initialize Groq: %s", exc)
+
+mistral_available = False
+mistral_client = None
+try:
+    if MISTRAL_API_KEY:
+        from mistralai import Mistral
+        mistral_client = Mistral(api_key=MISTRAL_API_KEY)
+        mistral_available = True
+    else:
+        LOGGER.warning("MISTRAL_API_KEY not set — Mistral unavailable.")
+except Exception as exc:
+    LOGGER.error("Failed to initialize Mistral: %s", exc)
+
+gemini_available = False
+try:
+    if GOOGLE_API_KEY:
+        import google.generativeai as genai
+        genai.configure(api_key=GOOGLE_API_KEY)
+        gemini_available = True
+    else:
+        LOGGER.warning("GOOGLE_API_KEY not set — Gemini unavailable.")
+except Exception as exc:
+    LOGGER.error("Failed to initialize Gemini: %s", exc)
+
+
+def get_active_provider() -> Optional[str]:
+    """
+    Return the active LLM provider name.
+    Uses LLM_PROVIDER env var if set and available, otherwise auto-detects.
+    Priority: groq → mistral → gemini
+    """
+    if LLM_PROVIDER:
+        if LLM_PROVIDER == "groq" and groq_available:
+            return "groq"
+        if LLM_PROVIDER == "mistral" and mistral_available:
+            return "mistral"
+        if LLM_PROVIDER == "gemini" and gemini_available:
+            return "gemini"
+        LOGGER.warning("Requested provider '%s' unavailable — falling back to auto-detect.", LLM_PROVIDER)
+
+    if groq_available:
+        return "groq"
+    if mistral_available:
+        return "mistral"
+    if gemini_available:
+        return "gemini"
+
+    return None
 
 
 def load_groq_client() -> Optional[Tuple[object, str]]:
-    """
-    Load and initialize Groq client.
-    
-    Returns:
-        Tuple of (client, model_name) if successful, None otherwise
-    """
-    if not GROQ_API_KEY:
+    """Return Groq client and model name, or None if unavailable."""
+    if not groq_available or not groq_client:
         LOGGER.warning("GROQ_API_KEY not set")
         return None
-    
-    try:
-        from groq import Groq
-        client = Groq(api_key=GROQ_API_KEY)
-        return (client, GROQ_MODEL)
-    except Exception as exc:
-        LOGGER.error("Failed to load Groq client: %s", exc)
-        return None
+    return (groq_client, GROQ_MODEL)
 
 
 def llm_generate(provider: str, prompt: str, temperature: float = 0.3) -> str:
     """
     Generate text using the specified LLM provider.
-    
+
     Args:
-        provider: "gemini" or "groq"
+        provider: "groq" | "mistral" | "gemini"
         prompt: The prompt text
-        temperature: Temperature for generation (default: 0.3)
-        
+        temperature: Generation temperature (default 0.3)
+
     Returns:
-        Generated text string, or error message if generation fails
+        Generated text, or an error string prefixed with "Error:" on failure.
     """
-    if provider not in ["gemini", "groq"]:
-        LOGGER.warning("Unknown provider '%s', defaulting to 'gemini'", provider)
-        provider = "gemini"
-    
-    if provider == "gemini":
-        if not gemini_available or not GOOGLE_API_KEY:
-            error_msg = "Error: Gemini API key is not configured. Please set GOOGLE_API_KEY in your .env file."
-            LOGGER.error(error_msg)
-            return error_msg
-        
-        try:
-            model = genai.GenerativeModel(GEMINI_MODEL)
-            response = model.generate_content(prompt)
-            
-            if hasattr(response, "text") and response.text:
-                return response.text.strip()
-            else:
-                LOGGER.warning("Gemini response has no text attribute or is empty")
-                return "Error: Could not generate an answer. Please try again."
-        
-        except Exception as exc:
-            LOGGER.exception("Error calling Gemini: %s", exc)
-            return f"Error: Failed to generate answer with Gemini. {str(exc)}"
-    
-    elif provider == "groq":
+    if provider == "groq":
         if not groq_available or not groq_client:
-            error_msg = "Error: Groq API key is not configured. Please set GROQ_API_KEY in your .env file."
-            LOGGER.error(error_msg)
-            return error_msg
-        
+            return "Error: Groq API key is not configured. Please set GROQ_API_KEY."
         try:
             response = groq_client.chat.completions.create(
                 model=GROQ_MODEL,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 temperature=temperature,
             )
-            
-            if response.choices and len(response.choices) > 0:
-                answer = response.choices[0].message.content.strip()
-                return answer if answer else "Error: Could not generate an answer. Please try again."
-            else:
-                LOGGER.warning("Groq response has no choices")
-                return "Error: Could not generate an answer. Please try again."
-        
+            answer = response.choices[0].message.content.strip() if response.choices else ""
+            return answer or "Error: Empty response from Groq."
         except Exception as exc:
-            LOGGER.exception("Error calling Groq: %s", exc)
-            return f"Error: Failed to generate answer with Groq. {str(exc)}"
-    
-    # Fallback (should not reach here)
-    return "Error: Unknown provider error."
+            LOGGER.exception("Groq error: %s", exc)
+            return f"Error: Groq call failed. {exc}"
+
+    elif provider == "mistral":
+        if not mistral_available or not mistral_client:
+            return "Error: Mistral API key is not configured. Please set MISTRAL_API_KEY."
+        try:
+            response = mistral_client.chat.complete(
+                model=MISTRAL_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature,
+            )
+            answer = response.choices[0].message.content.strip() if response.choices else ""
+            return answer or "Error: Empty response from Mistral."
+        except Exception as exc:
+            LOGGER.exception("Mistral error: %s", exc)
+            return f"Error: Mistral call failed. {exc}"
+
+    elif provider == "gemini":
+        if not gemini_available or not GOOGLE_API_KEY:
+            return "Error: Gemini API key is not configured. Please set GOOGLE_API_KEY."
+        try:
+            import google.generativeai as genai
+            model = genai.GenerativeModel(GEMINI_MODEL)
+            response = model.generate_content(prompt)
+            if hasattr(response, "text") and response.text:
+                return response.text.strip()
+            return "Error: Empty response from Gemini."
+        except Exception as exc:
+            LOGGER.exception("Gemini error: %s", exc)
+            return f"Error: Gemini call failed. {exc}"
+
+    return f"Error: Unknown provider '{provider}'."
 
 
 def llm_generate_json(provider: str, prompt: str, temperature: float = 0.2) -> dict:
     """
-    Generate JSON output using the specified LLM provider.
-    
-    Args:
-        provider: "gemini" or "groq"
-        prompt: The prompt text (should instruct model to return JSON)
-        temperature: Temperature for generation (default: 0.2 for more deterministic JSON)
-        
+    Generate and parse a JSON response from the specified provider.
+
     Returns:
-        Parsed JSON dictionary, or empty dict if parsing fails
+        Parsed dict, or empty dict on failure.
     """
     try:
-        # Add JSON instruction to prompt
-        json_prompt = f"""{prompt}
+        json_prompt = f"{prompt}\n\nReturn ONLY valid JSON. No prose. No explanation."
+        raw = llm_generate(provider, json_prompt, temperature)
 
-Return ONLY valid JSON. No prose. No explanation."""
-        
-        raw_output = llm_generate(provider, json_prompt, temperature)
-        
-        # Check if output is an error message
-        if raw_output.startswith("Error:"):
-            LOGGER.error("LLM generation failed: %s", raw_output)
+        if raw.startswith("Error:"):
+            LOGGER.error("LLM generation failed: %s", raw)
             return {}
-        
-        # Try to extract JSON from response (might be wrapped in markdown code blocks)
-        json_text = raw_output.strip()
-        
-        # Remove markdown code fences if present
-        if json_text.startswith("```"):
-            lines = json_text.splitlines()
-            # Remove first line (```json or ```)
-            lines = lines[1:]
-            # Remove last line if it's ```
+
+        text = raw.strip()
+        if text.startswith("```"):
+            lines = text.splitlines()[1:]
             if lines and lines[-1].strip().startswith("```"):
                 lines = lines[:-1]
-            json_text = "\n".join(lines).strip()
-        
-        # Parse JSON
-        parsed = json.loads(json_text)
+            text = "\n".join(lines).strip()
+
+        parsed = json.loads(text)
         return parsed if isinstance(parsed, dict) else {}
-    
-    except json.JSONDecodeError as json_err:
-        LOGGER.error("Failed to parse JSON from LLM response: %s", json_err)
-        LOGGER.debug("Raw LLM response: %s", raw_output)
+
+    except json.JSONDecodeError as err:
+        LOGGER.error("JSON parse error: %s", err)
         return {}
-    
     except Exception as exc:
         LOGGER.exception("Unexpected error in llm_generate_json: %s", exc)
         return {}
-

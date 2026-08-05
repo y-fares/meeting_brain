@@ -16,7 +16,6 @@ import re
 from collections import Counter
 from typing import Any, Dict, List
 
-from groq import Groq
 import nltk
 import pandas as pd
 import streamlit as st
@@ -26,25 +25,17 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 
 from utils_json import parse_decisions, parse_todos
 from services.text_pipeline import preprocess_text
+from llm_providers import llm_generate, get_active_provider
 
 # Load environment variables from .env file
 load_dotenv()
 
 # ---------------------------------------------------------------------------
-# Logging & Groq client setup
+# Logging setup
 # ---------------------------------------------------------------------------
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
-
-# Configure Groq API
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-if GROQ_API_KEY:
-    groq_client = Groq(api_key=GROQ_API_KEY)
-else:
-    groq_client = None
-    LOGGER.warning("GROQ_API_KEY environment variable is not set.")
 
 # ---------------------------------------------------------------------------
 # NLTK resource preparation
@@ -97,145 +88,81 @@ from services.text_pipeline import preprocess_text
 
 
 def generate_summary(clean_text: str) -> str:
-    """
-    Generate a concise summary (5-10 lines) using Groq.
-
-    Args:
-        clean_text: The cleaned/preprocessed meeting text
-
-    Returns:
-        A string containing the summary, or an empty string if generation fails
-    """
+    """Generate a concise summary (5-10 lines) using the active LLM provider."""
     if not clean_text or not clean_text.strip():
         return ""
 
-    if not GROQ_API_KEY or not groq_client:
-        LOGGER.error("GROQ_API_KEY environment variable is not set")
+    provider = get_active_provider()
+    if not provider:
+        LOGGER.error("No LLM provider available.")
         return ""
 
-    try:
-        prompt = (
-            "You are a meeting summarization assistant. "
-            "Generate a concise, faithful summary (5-10 lines) in Markdown format. "
-            "Do not invent information. Only summarize what is present in the meeting notes.\n\n"
-            f"Meeting notes:\n{clean_text}"
-        )
+    prompt = (
+        "You are a meeting summarization assistant. "
+        "Generate a concise, faithful summary (5-10 lines) in Markdown format. "
+        "Do not invent information. Only summarize what is present in the meeting notes.\n\n"
+        f"Meeting notes:\n{clean_text}"
+    )
 
-        response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-        )
-        
-        summary = response.choices[0].message.content.strip() if response.choices else ""
-        return summary
-
-    except Exception as exc:
-        LOGGER.exception("Error while generating summary: %s", exc)
+    result = llm_generate(provider, prompt, temperature=0.3)
+    if result.startswith("Error:"):
+        LOGGER.error("Summary generation failed: %s", result)
         return ""
+    return result
 
 
 def extract_decisions(clean_text: str) -> List[str]:
-    """
-    Extract decisions from meeting notes using Groq.
-
-    Args:
-        clean_text: The cleaned/preprocessed meeting text
-
-    Returns:
-        A list of decision strings, or an empty list if extraction fails
-    """
+    """Extract explicit decisions from meeting notes using the active LLM provider."""
     if not clean_text or not clean_text.strip():
         return []
 
-    if not GROQ_API_KEY or not groq_client:
-        LOGGER.error("GROQ_API_KEY environment variable is not set")
+    provider = get_active_provider()
+    if not provider:
+        LOGGER.error("No LLM provider available.")
         return []
 
-    try:
-        prompt = (
-            "Return ONLY valid JSON. No prose. No explanation.\n\n"
-            "Extract every explicit decision from the meeting notes below.\n"
-            "Return ONLY JSON in this exact format:\n"
-            '{"decisions": ["decision 1", "decision 2"]}\n\n'
-            "Do not invent decisions not explicitly written.\n\n"
-            f"Meeting notes:\n{clean_text}"
-        )
+    prompt = (
+        "Return ONLY valid JSON. No prose. No explanation.\n\n"
+        "Extract every explicit decision from the meeting notes below.\n"
+        "Return ONLY JSON in this exact format:\n"
+        '{"decisions": ["decision 1", "decision 2"]}\n\n'
+        "Do not invent decisions not explicitly written.\n\n"
+        f"Meeting notes:\n{clean_text}"
+    )
 
-        response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-        )
-        
-        raw_output = response.choices[0].message.content.strip() if response.choices else ""
-
-        if not raw_output:
-            return []
-
-        # Parse JSON using safe parsing utility
-        return parse_decisions(raw_output)
-
-    except Exception as exc:
-        LOGGER.exception("Error while extracting decisions: %s", exc)
+    raw_output = llm_generate(provider, prompt, temperature=0.2)
+    if not raw_output or raw_output.startswith("Error:"):
         return []
+    return parse_decisions(raw_output)
 
 
 def extract_todos(clean_text: str) -> List[Dict[str, str]]:
-    """
-    Extract action items (TODOs) from meeting notes using Groq.
-
-    Args:
-        clean_text: The cleaned/preprocessed meeting text
-
-    Returns:
-        A list of dictionaries with keys 'task', 'owner', 'due_date',
-        or an empty list if extraction fails
-    """
+    """Extract action items (TODOs) from meeting notes using the active LLM provider."""
     if not clean_text or not clean_text.strip():
         return []
 
-    if not GROQ_API_KEY or not groq_client:
-        LOGGER.error("GROQ_API_KEY environment variable is not set")
+    provider = get_active_provider()
+    if not provider:
+        LOGGER.error("No LLM provider available.")
         return []
 
-    try:
-        prompt = (
-            "Return ONLY valid JSON. No text outside JSON.\n\n"
-            "Do not infer. Only extract explicit actions.\n\n"
-            "Extract every action item/TODO from the meeting notes below.\n"
-            "Return ONLY JSON in this exact format:\n"
-            '{\n  "todos": [\n    {"task": "...", "owner": "...", "due_date": "YYYY-MM-DD or empty string"}\n  ]\n}\n\n'
-            "Rules:\n"
-            "- Use empty string for missing owner\n"
-            "- Use empty string for missing due date\n"
-            "- Do not invent tasks or owners\n\n"
-            f"Meeting notes:\n{clean_text}"
-        )
+    prompt = (
+        "Return ONLY valid JSON. No text outside JSON.\n\n"
+        "Do not infer. Only extract explicit actions.\n\n"
+        "Extract every action item/TODO from the meeting notes below.\n"
+        "Return ONLY JSON in this exact format:\n"
+        '{\n  "todos": [\n    {"task": "...", "owner": "...", "due_date": "YYYY-MM-DD or empty string"}\n  ]\n}\n\n'
+        "Rules:\n"
+        "- Use empty string for missing owner\n"
+        "- Use empty string for missing due date\n"
+        "- Do not invent tasks or owners\n\n"
+        f"Meeting notes:\n{clean_text}"
+    )
 
-        response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-        )
-        
-        raw_output = response.choices[0].message.content.strip() if response.choices else ""
-
-        if not raw_output:
-            return []
-
-        # Parse JSON using safe parsing utility
-        return parse_todos(raw_output)
-
-    except Exception as exc:
-        LOGGER.exception("Error while extracting todos: %s", exc)
+    raw_output = llm_generate(provider, prompt, temperature=0.2)
+    if not raw_output or raw_output.startswith("Error:"):
         return []
+    return parse_todos(raw_output)
 
 
 # ---------------------------------------------------------------------------
