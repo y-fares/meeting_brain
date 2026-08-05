@@ -6,19 +6,47 @@ Pure functions that return data structures ready for DTOs.
 import logging
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 import pandas as pd
 
-from database import Meeting, Todo, Decision
+from database import Meeting, Todo, Decision, User
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _can_see_all(user: Optional[User]) -> bool:
+    return user is None or user.role == "admin"
+
+
+def _apply_meeting_visibility(query, user: Optional[User]):
+    if _can_see_all(user):
+        return query
+    return query.filter(
+        or_(
+            Meeting.created_by_user_id == user.id,
+            Meeting.todos.any(Todo.assigned_user_id == user.id),
+        )
+    )
+
+
+def _apply_todo_visibility(query, user: Optional[User]):
+    if _can_see_all(user):
+        return query
+    return query.filter(
+        or_(
+            Todo.assigned_user_id == user.id,
+            Meeting.created_by_user_id == user.id,
+        )
+    )
 
 
 def list_meetings(
     session: Session,
     limit: int = 50,
     date_from: Optional[str] = None,
-    date_to: Optional[str] = None
+    date_to: Optional[str] = None,
+    current_user: Optional[User] = None,
 ) -> List[Dict[str, Any]]:
     """
     List meetings with optional date filtering.
@@ -37,6 +65,7 @@ def list_meetings(
         limit = min(max(1, limit), 200)
         
         query = session.query(Meeting).order_by(Meeting.date.desc())
+        query = _apply_meeting_visibility(query, current_user)
         
         # Apply date filters
         if date_from:
@@ -61,6 +90,7 @@ def list_meetings(
                 "date": m.date,
                 "title": m.title or "",
                 "summary": m.summary or "",
+                "created_by_user_id": m.created_by_user_id,
             }
             for m in meetings
         ]
@@ -73,7 +103,8 @@ def list_todos(
     session: Session,
     status: Optional[str] = None,
     owner: Optional[str] = None,
-    overdue: Optional[bool] = None
+    overdue: Optional[bool] = None,
+    current_user: Optional[User] = None,
 ) -> List[Dict[str, Any]]:
     """
     List todos with optional filtering.
@@ -93,6 +124,7 @@ def list_todos(
             .join(Meeting, Todo.meeting_id == Meeting.id)
             .order_by(Todo.created_at.desc())
         )
+        query = _apply_todo_visibility(query, current_user)
         
         # Apply filters
         if status:
@@ -144,6 +176,7 @@ def list_todos(
                 "completed_at": todo.completed_at,
                 "notion_page_id": todo.notion_page_id or "",
                 "trello_card_id": todo.trello_card_id or "",
+                "assigned_user_id": todo.assigned_user_id,
             })
         
         return result
@@ -154,7 +187,8 @@ def list_todos(
 
 def list_decisions(
     session: Session,
-    meeting_id: Optional[int] = None
+    meeting_id: Optional[int] = None,
+    current_user: Optional[User] = None,
 ) -> List[Dict[str, Any]]:
     """
     List decisions with optional meeting filter.
@@ -172,6 +206,7 @@ def list_decisions(
             .join(Meeting, Decision.meeting_id == Meeting.id)
             .order_by(Decision.id.desc())
         )
+        query = _apply_meeting_visibility(query, current_user)
         
         if meeting_id:
             query = query.filter(Decision.meeting_id == meeting_id)
@@ -194,7 +229,7 @@ def list_decisions(
         return []
 
 
-def compute_kpis(session: Session) -> Dict[str, Any]:
+def compute_kpis(session: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
     """
     Compute key performance indicators.
     
@@ -206,28 +241,34 @@ def compute_kpis(session: Session) -> Dict[str, Any]:
     """
     try:
         # Total meetings
-        total_meetings = session.query(Meeting).count()
+        meetings_query = _apply_meeting_visibility(session.query(Meeting), current_user)
+        todos_query = _apply_todo_visibility(
+            session.query(Todo).join(Meeting, Todo.meeting_id == Meeting.id),
+            current_user,
+        )
+
+        total_meetings = meetings_query.count()
         
         # Total todos
-        total_todos = session.query(Todo).count()
+        total_todos = todos_query.count()
         
         # Done todos (case-insensitive)
-        done_todos = session.query(Todo).filter(
+        done_todos = todos_query.filter(
             Todo.status.in_(["done", "completed"])
         ).count()
         
         # Also check case variations
-        done_query = session.query(Todo).filter(
+        done_query = todos_query.filter(
             Todo.status.ilike("done")
         ).count()
-        completed_query = session.query(Todo).filter(
+        completed_query = todos_query.filter(
             Todo.status.ilike("completed")
         ).count()
         done_todos = max(done_todos, done_query, completed_query)
         
         # Overdue todos
         today = date.today()
-        all_todos = session.query(Todo).all()
+        all_todos = todos_query.all()
         overdue_count = 0
         
         for todo in all_todos:
@@ -261,7 +302,7 @@ def compute_kpis(session: Session) -> Dict[str, Any]:
         }
 
 
-def export_meetings_df(session: Session) -> pd.DataFrame:
+def export_meetings_df(session: Session, current_user: Optional[User] = None) -> pd.DataFrame:
     """
     Export meetings as pandas DataFrame.
     
@@ -269,7 +310,7 @@ def export_meetings_df(session: Session) -> pd.DataFrame:
         DataFrame with columns: id, date, title, summary
     """
     try:
-        meetings = session.query(Meeting).all()
+        meetings = _apply_meeting_visibility(session.query(Meeting), current_user).all()
         data = []
         for m in meetings:
             data.append({
@@ -277,18 +318,19 @@ def export_meetings_df(session: Session) -> pd.DataFrame:
                 "date": m.date,
                 "title": m.title or "",
                 "summary": m.summary or "",
+                "created_by_user_id": m.created_by_user_id,
             })
         
         if data:
             return pd.DataFrame(data)
         else:
-            return pd.DataFrame(columns=["id", "date", "title", "summary"])
+            return pd.DataFrame(columns=["id", "date", "title", "summary", "created_by_user_id"])
     except Exception as exc:
         LOGGER.exception("Error exporting meetings: %s", exc)
-        return pd.DataFrame(columns=["id", "date", "title", "summary"])
+        return pd.DataFrame(columns=["id", "date", "title", "summary", "created_by_user_id"])
 
 
-def export_todos_df(session: Session) -> pd.DataFrame:
+def export_todos_df(session: Session, current_user: Optional[User] = None) -> pd.DataFrame:
     """
     Export todos as pandas DataFrame.
     
@@ -299,8 +341,8 @@ def export_todos_df(session: Session) -> pd.DataFrame:
         rows = (
             session.query(Todo, Meeting)
             .join(Meeting, Todo.meeting_id == Meeting.id)
-            .all()
         )
+        rows = _apply_todo_visibility(rows, current_user).all()
         
         data = []
         for todo, meeting in rows:
@@ -318,6 +360,7 @@ def export_todos_df(session: Session) -> pd.DataFrame:
                 "completed_at": todo.completed_at,
                 "notion_page_id": todo.notion_page_id or "",
                 "trello_card_id": todo.trello_card_id or "",
+                "assigned_user_id": todo.assigned_user_id,
             })
         
         if data:
@@ -326,18 +369,18 @@ def export_todos_df(session: Session) -> pd.DataFrame:
             return pd.DataFrame(columns=[
                 "id", "meeting_id", "meeting_date", "meeting_title", "task",
                 "owner", "status", "due_date", "created_at", "acknowledged_at",
-                "completed_at", "notion_page_id", "trello_card_id"
+                "completed_at", "notion_page_id", "trello_card_id", "assigned_user_id"
             ])
     except Exception as exc:
         LOGGER.exception("Error exporting todos: %s", exc)
         return pd.DataFrame(columns=[
             "id", "meeting_id", "meeting_date", "meeting_title", "task",
             "owner", "status", "due_date", "created_at", "acknowledged_at",
-            "completed_at", "notion_page_id", "trello_card_id"
+            "completed_at", "notion_page_id", "trello_card_id", "assigned_user_id"
         ])
 
 
-def export_decisions_df(session: Session) -> pd.DataFrame:
+def export_decisions_df(session: Session, current_user: Optional[User] = None) -> pd.DataFrame:
     """
     Export decisions as pandas DataFrame.
     
@@ -348,8 +391,8 @@ def export_decisions_df(session: Session) -> pd.DataFrame:
         rows = (
             session.query(Decision, Meeting)
             .join(Meeting, Decision.meeting_id == Meeting.id)
-            .all()
         )
+        rows = _apply_meeting_visibility(rows, current_user).all()
         
         data = []
         for decision, meeting in rows:

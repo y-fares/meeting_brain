@@ -10,6 +10,7 @@ nltk>=3.9.2
 
 # Database
 SQLAlchemy>=2.0.44
+# psycopg[binary]>=3.2.0  # PostgreSQL only — not needed for SQLite default deployment
 
 # Data Processing
 pandas>=2.3.3

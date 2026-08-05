@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from api.routes import health, meetings, todos, decisions, analytics, exports, insights, slack
+from api.routes import health, meetings, todos, decisions, analytics, exports, insights, slack, auth
 from api.security import get_auth_token
 from api.errors import ErrorResponseDTO, ErrorDTO
 
@@ -128,6 +128,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 # Include routers
 app.include_router(health.router, tags=["health"])
+app.include_router(auth.router)
 app.include_router(meetings.router, tags=["meetings"])
 app.include_router(todos.router, tags=["todos"])
 app.include_router(decisions.router, tags=["decisions"])

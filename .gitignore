@@ -2,5 +2,17 @@
 .env
 .venv/
 
+# Streamlit secrets (ne jamais committer)
+.streamlit/secrets.toml
+
 # Python cache
 __pycache__/
+.pytest_cache/
+*.py[cod]
+
+# Local runtime data and generated archives
+meeting_brain.db
+*.db
+*.sqlite
+*.sqlite3
+*.zip

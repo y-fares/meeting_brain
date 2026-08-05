@@ -9,14 +9,16 @@ from sqlalchemy.orm import Session
 from api.deps import get_db
 from api.dtos import DecisionDTO
 from api.repositories import list_decisions
-from api.security import require_auth
+from api.security import require_configured_auth
+from database import User
 
-router = APIRouter(dependencies=[Depends(require_auth)])
+router = APIRouter()
 
 
 @router.get("/decisions", response_model=list[DecisionDTO])
 def get_decisions(
     meeting_id: Optional[int] = Query(default=None, description="Filter by meeting ID"),
+    current_user: User | None = Depends(require_configured_auth),
     db: Session = Depends(get_db)
 ) -> list[DecisionDTO]:
     """
@@ -31,7 +33,8 @@ def get_decisions(
     """
     decisions = list_decisions(
         session=db,
-        meeting_id=meeting_id
+        meeting_id=meeting_id,
+        current_user=current_user,
     )
     return [DecisionDTO(**d) for d in decisions]
 

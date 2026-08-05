@@ -1,177 +1,184 @@
 """
-Global TODO view for displaying and managing all TODOs across all meetings.
+Global TODO view backed by the FastAPI API.
 """
 
-import streamlit as st
-import pandas as pd
+from typing import Any, Optional
 
-from database import (
-    create_session,
-    Todo,
-    Meeting,
-    acknowledge_todo,
-    complete_todo,
-    set_notion_page_id,
+import pandas as pd
+import streamlit as st
+
+from services.api_client import (
+    ApiClientError,
+    MeetingBrainApiClient,
+    get_api_base_url,
+    get_default_api_token,
 )
-from integrations.notion_client import (
-    push_todo_to_notion,
-    sync_from_notion,
-    sync_to_notion,
-)
+
+
+def _get_api_token() -> Optional[str]:
+    token = st.session_state.get("api_token")
+    if token:
+        return token
+    default_token = get_default_api_token()
+    if default_token:
+        st.session_state["api_token"] = default_token
+    return default_token
+
+
+def _get_client() -> MeetingBrainApiClient:
+    return MeetingBrainApiClient(base_url=get_api_base_url(), token=_get_api_token())
+
+
+def _render_auth_panel() -> None:
+    with st.sidebar.expander("API session", expanded=False):
+        st.caption(f"API: {get_api_base_url()}")
+
+        current_token = _get_api_token()
+        if current_token:
+            st.success("Bearer token configured")
+            if st.button("Clear API token"):
+                st.session_state.pop("api_token", None)
+                st.rerun()
+        else:
+            st.info("No API token configured")
+
+        with st.form("api_login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Log in")
+
+        if submitted:
+            try:
+                token = MeetingBrainApiClient(base_url=get_api_base_url()).login(email, password)
+                st.session_state["api_token"] = token
+                st.success("Logged in")
+                st.rerun()
+            except ApiClientError as exc:
+                st.error(f"Login failed: {exc}")
+
+        pasted_token = st.text_input("Bearer token", type="password")
+        if st.button("Use token") and pasted_token.strip():
+            st.session_state["api_token"] = pasted_token.strip()
+            st.rerun()
+
+
+def _format_datetime(value: Any) -> str:
+    if not value:
+        return "N/A"
+    text = str(value)
+    return text.replace("T", " ")[:16]
+
+
+def _build_table_data(todos: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    table_data = []
+    for todo in todos:
+        table_data.append(
+            {
+                "ID": todo.get("id"),
+                "Task": todo.get("task") or "",
+                "Owner": todo.get("owner") or "Unassigned",
+                "Assignee ID": todo.get("assigned_user_id") or "",
+                "Status": todo.get("status") or "",
+                "Due date": todo.get("due_date") or "Not specified",
+                "Meeting ID": todo.get("meeting_id"),
+                "Meeting title": todo.get("meeting_title") or "",
+                "Meeting date": _format_datetime(todo.get("meeting_date")),
+                "Created": _format_datetime(todo.get("created_at")),
+                "Acknowledged": _format_datetime(todo.get("acknowledged_at")),
+                "Completed": _format_datetime(todo.get("completed_at")),
+            }
+        )
+    return table_data
+
+
+def _render_status_actions(client: MeetingBrainApiClient, selected_id: int) -> bool:
+    col1, col2 = st.columns(2)
+    updated = False
+
+    with col1:
+        if st.button("Mark as acknowledged", type="primary"):
+            try:
+                client.update_todo_status(selected_id, "in_progress", "Marked acknowledged in Streamlit")
+                st.success(f"TODO #{selected_id} marked as acknowledged.")
+                updated = True
+            except ApiClientError as exc:
+                st.error(f"Error acknowledging TODO: {exc}")
+
+    with col2:
+        if st.button("Mark as done", type="primary"):
+            try:
+                client.update_todo_status(selected_id, "completed", "Marked done in Streamlit")
+                st.success(f"TODO #{selected_id} marked as done.")
+                updated = True
+            except ApiClientError as exc:
+                st.error(f"Error completing TODO: {exc}")
+
+    return updated
+
+
+def _render_assignment_action(client: MeetingBrainApiClient, selected_id: int) -> bool:
+    updated = False
+    st.subheader("Assignment")
+
+    assignee_raw = st.text_input(
+        "Assigned user ID",
+        help="Leave empty to unassign. Admins and meeting creators can assign TODOs.",
+    )
+    if st.button("Update assignee"):
+        try:
+            assigned_user_id = int(assignee_raw) if assignee_raw.strip() else None
+            client.assign_todo(selected_id, assigned_user_id)
+            st.success(f"TODO #{selected_id} assignment updated.")
+            updated = True
+        except ValueError:
+            st.error("Assigned user ID must be a number.")
+        except ApiClientError as exc:
+            st.error(f"Error assigning TODO: {exc}")
+
+    return updated
 
 
 def render_todos_view() -> None:
     """
-    Render the 'All TODOs' view in Streamlit.
-    
-    Shows all TODOs across all meetings and allows status updates.
-    Displays TODOs in a dataframe with all relevant information.
-    Provides buttons to mark TODOs as acknowledged or done.
+    Render the 'All TODOs' view through the FastAPI backend.
     """
+    _render_auth_panel()
+
     st.title("All TODOs")
-    st.markdown("View and manage all action items from all meetings.")
+    st.markdown("View and manage action items through the API.")
     st.divider()
-    
-    # Create database session
-    session = create_session()
-    
+
+    client = _get_client()
+
     try:
-        # Query all TODOs joined with their parent meetings
-        rows = (
-            session.query(Todo, Meeting)
-            .join(Meeting, Todo.meeting_id == Meeting.id)
-            .order_by(Todo.created_at.desc())
-            .all()
-        )
-        
-        # Handle empty case
-        if not rows:
-            st.info("No TODOs found yet. Analyze a meeting to create action items!")
-            return
-        
-        # Build table data
-        table_data = []
-        for todo, meeting in rows:
-            table_data.append({
-                "ID": todo.id,
-                "Task": todo.task,
-                "Owner": todo.owner or "Unassigned",
-                "Status": todo.status,
-                "Due date": todo.due_date or "Not specified",
-                "Meeting ID": meeting.id,
-                "Meeting date": meeting.date.strftime("%Y-%m-%d") if meeting.date else "N/A",
-                "Created": todo.created_at.strftime("%Y-%m-%d %H:%M") if todo.created_at else "N/A",
-                "Acknowledged": todo.acknowledged_at.strftime("%Y-%m-%d %H:%M") if todo.acknowledged_at else "N/A",
-                "Completed": todo.completed_at.strftime("%Y-%m-%d %H:%M") if todo.completed_at else "N/A",
-            })
-        
-        # Display dataframe
-        df = pd.DataFrame(table_data)
-        st.dataframe(df, width='stretch', hide_index=True)
-        
-        st.divider()
-        
-        # Selectbox to pick a TODO
-        todo_options = {f"#{row['ID']}: {row['Task'][:50]}..." if len(row['Task']) > 50 else f"#{row['ID']}: {row['Task']}": row['ID'] for row in table_data}
-        selected_label = st.selectbox("Select a TODO to update", list(todo_options.keys()))
-        selected_id = todo_options[selected_label]
-        
-        # Find the selected todo and meeting objects
-        selected_todo = None
-        selected_meeting = None
-        for todo, meeting in rows:
-            if todo.id == selected_id:
-                selected_todo = todo
-                selected_meeting = meeting
-                break
-        
-        st.divider()
-        
-        # Action buttons for status updates and integrations
-        st.subheader("Actions")
-        col1, col2, col3 = st.columns(3)
-        updated = False
-        
-        with col1:
-            if st.button("Mark as acknowledged", type="primary"):
-                try:
-                    acknowledge_todo(session, selected_id)
-                    st.success(f"✅ TODO #{selected_id} marked as acknowledged (in progress).")
-                    updated = True
-                except Exception as exc:
-                    st.error(f"❌ Error acknowledging TODO: {exc}")
-        
-        with col2:
-            if st.button("Mark as done", type="primary"):
-                try:
-                    complete_todo(session, selected_id)
-                    st.success(f"✅ TODO #{selected_id} marked as done.")
-                    updated = True
-                except Exception as exc:
-                    st.error(f"❌ Error completing TODO: {exc}")
-        
-        with col3:
-            # Push to Notion button
-            if selected_todo and selected_meeting:
-                if selected_todo.notion_page_id:
-                    st.info("This TODO is already linked to Notion.")
-                    st.button("Push to Notion", disabled=True)
-                else:
-                    if st.button("Push to Notion", type="primary"):
-                        try:
-                            page_id = push_todo_to_notion(selected_todo, selected_meeting)
-                            if page_id:
-                                set_notion_page_id(session, selected_id, page_id)
-                                st.success(f"✅ Pushed to Notion: {page_id}")
-                                updated = True
-                            else:
-                                st.error("❌ Failed to push TODO to Notion. Check logs.")
-                        except Exception as exc:
-                            st.error(f"❌ Error pushing to Notion: {exc}")
-            else:
-                st.button("Push to Notion", disabled=True)
-        
-        st.divider()
-        
-        # Synchronization section
-        st.subheader("🔄 Synchronization")
-        st.markdown("Synchronize statuses between Notion and the database.")
-        
-        sync_col1, sync_col2 = st.columns(2)
-        
-        with sync_col1:
-            if st.button("📥 Sync from Notion", type="secondary"):
-                try:
-                    with st.spinner("Syncing from Notion..."):
-                        updated_count = sync_from_notion(session)
-                        if updated_count > 0:
-                            st.success(f"✅ Synced {updated_count} TODO(s) from Notion to database.")
-                            updated = True
-                        else:
-                            st.info("ℹ️ No TODOs needed updating. Everything is already in sync.")
-                except Exception as exc:
-                    st.error(f"❌ Error syncing from Notion: {exc}")
-                    st.exception(exc)
-        
-        with sync_col2:
-            if st.button("📤 Sync to Notion", type="secondary"):
-                try:
-                    with st.spinner("Syncing to Notion..."):
-                        updated_count = sync_to_notion(session)
-                        if updated_count > 0:
-                            st.success(f"✅ Synced {updated_count} TODO(s) from database to Notion.")
-                        else:
-                            st.info("ℹ️ No TODOs needed updating. Everything is already in sync.")
-                except Exception as exc:
-                    st.error(f"❌ Error syncing to Notion: {exc}")
-                    st.exception(exc)
-        
-        # Rerun after any update to refresh the table
-        if updated:
-            st.rerun()
-    
-    except Exception as exc:
-        st.error(f"Error loading TODOs: {exc}")
-        st.exception(exc)
-    finally:
-        session.close()
+        todos = client.list_todos()
+    except ApiClientError as exc:
+        st.error(f"Error loading TODOs from API: {exc}")
+        st.info("Start FastAPI with `uvicorn api.main:app --reload` and configure a token if auth is enabled.")
+        return
+
+    if not todos:
+        st.info("No TODOs found yet. Analyze a meeting to create action items.")
+        return
+
+    table_data = _build_table_data(todos)
+    st.dataframe(pd.DataFrame(table_data), width="stretch", hide_index=True)
+
+    st.divider()
+
+    todo_options = {
+        f"#{row['ID']}: {row['Task'][:50]}..." if len(row["Task"]) > 50 else f"#{row['ID']}: {row['Task']}": row["ID"]
+        for row in table_data
+    }
+    selected_label = st.selectbox("Select a TODO to update", list(todo_options.keys()))
+    selected_id = int(todo_options[selected_label])
+
+    st.divider()
+    st.subheader("Status")
+
+    updated = _render_status_actions(client, selected_id)
+    st.divider()
+    updated = _render_assignment_action(client, selected_id) or updated
+
+    if updated:
+        st.rerun()

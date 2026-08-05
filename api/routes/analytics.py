@@ -8,13 +8,17 @@ from sqlalchemy.orm import Session
 from api.deps import get_db
 from api.dtos import KPIsDTO
 from api.repositories import compute_kpis
-from api.security import require_auth
+from api.security import require_configured_auth
+from database import User
 
-router = APIRouter(dependencies=[Depends(require_auth)])
+router = APIRouter()
 
 
 @router.get("/analytics/kpis", response_model=KPIsDTO)
-def get_kpis(db: Session = Depends(get_db)) -> KPIsDTO:
+def get_kpis(
+    current_user: User | None = Depends(require_configured_auth),
+    db: Session = Depends(get_db),
+) -> KPIsDTO:
     """
     Get key performance indicators.
     
@@ -24,6 +28,6 @@ def get_kpis(db: Session = Depends(get_db)) -> KPIsDTO:
     Returns:
         KPI metrics
     """
-    kpis = compute_kpis(session=db)
+    kpis = compute_kpis(session=db, current_user=current_user)
     return KPIsDTO(**kpis)
 

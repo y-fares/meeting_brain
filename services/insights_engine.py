@@ -7,12 +7,28 @@ import os
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, or_
 
-from database import Todo, Meeting, TodoEvent
+from database import Todo, Meeting, TodoEvent, User
 from api.repositories import compute_kpis
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _can_see_all(user: Optional[User]) -> bool:
+    return user is None or user.role == "admin"
+
+
+def _visible_todos_query(session: Session, current_user: Optional[User] = None):
+    query = session.query(Todo).join(Meeting, Todo.meeting_id == Meeting.id)
+    if _can_see_all(current_user):
+        return query
+    return query.filter(
+        or_(
+            Todo.assigned_user_id == current_user.id,
+            Meeting.created_by_user_id == current_user.id,
+        )
+    )
 
 
 def _has_todo_events_table(session: Session) -> bool:
@@ -33,7 +49,7 @@ def _has_todo_events_table(session: Session) -> bool:
         return False
 
 
-def get_overdue_todos(session: Session) -> List[Todo]:
+def get_overdue_todos(session: Session, current_user: Optional[User] = None) -> List[Todo]:
     """
     Get all overdue todos.
     
@@ -45,7 +61,7 @@ def get_overdue_todos(session: Session) -> List[Todo]:
     """
     try:
         today = date.today()
-        all_todos = session.query(Todo).all()
+        all_todos = _visible_todos_query(session, current_user).all()
         overdue = []
         
         for todo in all_todos:
@@ -64,7 +80,11 @@ def get_overdue_todos(session: Session) -> List[Todo]:
         return []
 
 
-def get_stale_todos(session: Session, days: int = 7) -> List[Dict[str, Any]]:
+def get_stale_todos(
+    session: Session,
+    days: int = 7,
+    current_user: Optional[User] = None,
+) -> List[Dict[str, Any]]:
     """
     Get stale todos (no movement for N days).
     
@@ -79,7 +99,7 @@ def get_stale_todos(session: Session, days: int = 7) -> List[Dict[str, Any]]:
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_date_only = cutoff_date.date()
         
-        all_todos = session.query(Todo).filter(
+        all_todos = _visible_todos_query(session, current_user).filter(
             Todo.status.notin_(["done", "completed"])
         ).all()
         
@@ -129,7 +149,7 @@ def get_stale_todos(session: Session, days: int = 7) -> List[Dict[str, Any]]:
         return []
 
 
-def get_owner_load(session: Session) -> List[Dict[str, Any]]:
+def get_owner_load(session: Session, current_user: Optional[User] = None) -> List[Dict[str, Any]]:
     """
     Get workload per owner.
     
@@ -140,7 +160,7 @@ def get_owner_load(session: Session) -> List[Dict[str, Any]]:
         List of dicts with owner, counts by status, and overdue count
     """
     try:
-        all_todos = session.query(Todo).all()
+        all_todos = _visible_todos_query(session, current_user).all()
         owner_stats = {}
         
         today = date.today()
@@ -183,7 +203,7 @@ def get_owner_load(session: Session) -> List[Dict[str, Any]]:
         return []
 
 
-def get_bottlenecks(session: Session) -> Dict[str, Any]:
+def get_bottlenecks(session: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
     """
     Identify project bottlenecks.
     
@@ -194,8 +214,8 @@ def get_bottlenecks(session: Session) -> Dict[str, Any]:
         Dict with top overdue owners, most loaded owners, and stale tasks
     """
     try:
-        owner_load = get_owner_load(session)
-        stale_todos = get_stale_todos(session, days=7)
+        owner_load = get_owner_load(session, current_user=current_user)
+        stale_todos = get_stale_todos(session, days=7, current_user=current_user)
         
         # Top overdue owners
         overdue_owners = sorted(
@@ -239,7 +259,7 @@ def get_bottlenecks(session: Session) -> Dict[str, Any]:
         }
 
 
-def get_project_kpis(session: Session) -> Dict[str, Any]:
+def get_project_kpis(session: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
     """
     Get project KPIs (wrapper around compute_kpis).
     
@@ -250,7 +270,7 @@ def get_project_kpis(session: Session) -> Dict[str, Any]:
         Dict with KPI values
     """
     try:
-        return compute_kpis(session)
+        return compute_kpis(session, current_user=current_user)
     except Exception as exc:
         LOGGER.exception("Error getting project KPIs: %s", exc)
         return {
@@ -297,10 +317,10 @@ def _detect_intent(question: str) -> str:
     return "unknown"
 
 
-def _answer_overdue(session: Session) -> Dict[str, Any]:
+def _answer_overdue(session: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
     """Generate answer for overdue intent."""
-    overdue = get_overdue_todos(session)
-    kpis = get_project_kpis(session)
+    overdue = get_overdue_todos(session, current_user=current_user)
+    kpis = get_project_kpis(session, current_user=current_user)
     
     if not overdue:
         answer = "Aucune tâche en retard actuellement."
@@ -334,9 +354,9 @@ def _answer_overdue(session: Session) -> Dict[str, Any]:
     }
 
 
-def _answer_bottleneck(session: Session) -> Dict[str, Any]:
+def _answer_bottleneck(session: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
     """Generate answer for bottleneck intent."""
-    bottlenecks = get_bottlenecks(session)
+    bottlenecks = get_bottlenecks(session, current_user=current_user)
     
     if not bottlenecks["top_overdue_owners"] and not bottlenecks["stale_tasks"]:
         answer = "Aucun goulot d'étranglement identifié actuellement."
@@ -368,9 +388,9 @@ def _answer_bottleneck(session: Session) -> Dict[str, Any]:
     }
 
 
-def _answer_owner_load(session: Session) -> Dict[str, Any]:
+def _answer_owner_load(session: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
     """Generate answer for owner load intent."""
-    owner_load = get_owner_load(session)
+    owner_load = get_owner_load(session, current_user=current_user)
     
     if not owner_load:
         answer = "Aucune charge de travail disponible."
@@ -405,9 +425,9 @@ def _answer_owner_load(session: Session) -> Dict[str, Any]:
     }
 
 
-def _answer_stale(session: Session) -> Dict[str, Any]:
+def _answer_stale(session: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
     """Generate answer for stale intent."""
-    stale = get_stale_todos(session, days=7)
+    stale = get_stale_todos(session, days=7, current_user=current_user)
     
     if not stale:
         answer = "Aucune tâche stagnante identifiée."
@@ -429,9 +449,9 @@ def _answer_stale(session: Session) -> Dict[str, Any]:
     }
 
 
-def _answer_status_summary(session: Session) -> Dict[str, Any]:
+def _answer_status_summary(session: Session, current_user: Optional[User] = None) -> Dict[str, Any]:
     """Generate answer for status summary intent."""
-    kpis = get_project_kpis(session)
+    kpis = get_project_kpis(session, current_user=current_user)
     
     answer = (
         f"Résumé: {kpis['total_meetings']} réunion(s), "
@@ -511,7 +531,8 @@ def _enhance_with_llm(base_answer: Dict[str, Any], context: Dict[str, Any]) -> s
 def answer_insights_question(
     session: Session,
     question: str,
-    use_llm: bool = False
+    use_llm: bool = False,
+    current_user: Optional[User] = None,
 ) -> Dict[str, Any]:
     """
     Answer an insights question using database data.
@@ -529,15 +550,15 @@ def answer_insights_question(
         
         # Route to appropriate answer function
         if intent == "overdue":
-            base_answer = _answer_overdue(session)
+            base_answer = _answer_overdue(session, current_user=current_user)
         elif intent == "bottleneck":
-            base_answer = _answer_bottleneck(session)
+            base_answer = _answer_bottleneck(session, current_user=current_user)
         elif intent == "owner_load":
-            base_answer = _answer_owner_load(session)
+            base_answer = _answer_owner_load(session, current_user=current_user)
         elif intent == "stale":
-            base_answer = _answer_stale(session)
+            base_answer = _answer_stale(session, current_user=current_user)
         elif intent == "status_summary":
-            base_answer = _answer_status_summary(session)
+            base_answer = _answer_status_summary(session, current_user=current_user)
         else:
             # Unknown intent
             base_answer = {
@@ -550,7 +571,7 @@ def answer_insights_question(
         # Optionally enhance with LLM
         if use_llm and base_answer["intent"] != "unknown":
             context = {
-                "kpis": get_project_kpis(session),
+                "kpis": get_project_kpis(session, current_user=current_user),
                 "evidence": base_answer["evidence"]
             }
             enhanced_answer = _enhance_with_llm(base_answer, context)

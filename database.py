@@ -3,20 +3,25 @@ Database models and helpers for Meeting Brain.
 """
 
 import logging
+import os
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
-from typing import List, Optional
 
 # Setup logging
 LOGGER = logging.getLogger(__name__)
 
 # Database setup
 Base = declarative_base()
-engine = create_engine("sqlite:///meeting_brain.db", echo=False)
+DATABASE_URL = os.getenv("MEETING_BRAIN_DB_URL", "sqlite:///meeting_brain.db")
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
+)
 SessionLocal = sessionmaker(bind=engine)
 
 
@@ -34,11 +39,13 @@ class Meeting(Base):
     summary = Column(Text, nullable=True)
     raw_text = Column(Text, nullable=True)
     title = Column(String, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     # Relationships
     decisions = relationship("Decision", back_populates="meeting", cascade="all, delete-orphan")
     todos = relationship("Todo", back_populates="meeting", cascade="all, delete-orphan")
     participants = relationship("Participant", back_populates="meeting", cascade="all, delete-orphan")
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
 
 
 class Decision(Base):
@@ -65,6 +72,20 @@ class Participant(Base):
     meeting = relationship("Meeting", back_populates="participants")
 
 
+class User(Base):
+    """Application user for API authentication."""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String, nullable=False, unique=True, index=True)
+    display_name = Column(String, nullable=True)
+    role = Column(String, nullable=False, default="member")
+    password_hash = Column(String, nullable=False)
+    api_token_hash = Column(String, nullable=True, unique=True, index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    disabled_at = Column(DateTime, nullable=True)
+
+
 class Todo(Base):
     """Todo model."""
     __tablename__ = "todos"
@@ -80,9 +101,11 @@ class Todo(Base):
     completed_at = Column(DateTime, nullable=True)
     trello_card_id = Column(String, nullable=True)
     notion_page_id = Column(String, nullable=True)
+    assigned_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     # Relationships
     meeting = relationship("Meeting", back_populates="todos")
+    assigned_user = relationship("User", foreign_keys=[assigned_user_id])
 
 
 class TodoEvent(Base):
@@ -113,6 +136,7 @@ def ensure_schema() -> None:
     
     # Migrate existing tables if needed
     _migrate_todos_table()
+    _migrate_meetings_table()
 
 
 def _migrate_todos_table() -> None:
@@ -145,10 +169,38 @@ def _migrate_todos_table() -> None:
                 conn.execute(text("ALTER TABLE todos ADD COLUMN notion_page_id TEXT"))
                 conn.commit()
             LOGGER.info("Successfully added 'notion_page_id' column to todos table")
+
+        if "assigned_user_id" not in existing_columns:
+            LOGGER.info("Adding missing column 'assigned_user_id' to todos table")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE todos ADD COLUMN assigned_user_id INTEGER"))
+                conn.commit()
+            LOGGER.info("Successfully added 'assigned_user_id' column to todos table")
         
     except Exception as exc:
         LOGGER.exception("Error while migrating todos table: %s", exc)
         # Don't raise - allow app to continue even if migration fails
+
+
+def _migrate_meetings_table() -> None:
+    """Migrate the meetings table to add ownership columns."""
+    try:
+        inspector = inspect(engine)
+
+        if not inspector.has_table("meetings"):
+            return
+
+        existing_columns = [col["name"] for col in inspector.get_columns("meetings")]
+
+        if "created_by_user_id" not in existing_columns:
+            LOGGER.info("Adding missing column 'created_by_user_id' to meetings table")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE meetings ADD COLUMN created_by_user_id INTEGER"))
+                conn.commit()
+            LOGGER.info("Successfully added 'created_by_user_id' column to meetings table")
+
+    except Exception as exc:
+        LOGGER.exception("Error while migrating meetings table: %s", exc)
 
 
 def log_todo_event(
@@ -312,14 +364,22 @@ def set_notion_page_id(session: Session, todo_id: int, page_id: str) -> None:
         LOGGER.exception("Error while setting notion_page_id: %s", exc)
 
 
-def create_meeting(session: Session, raw_text: str, summary: str, title: Optional[str], date: Optional[datetime]) -> int:
+def create_meeting(
+    session: Session,
+    raw_text: str,
+    summary: str,
+    title: Optional[str],
+    date: Optional[datetime],
+    created_by_user_id: Optional[int] = None,
+) -> int:
     """Create a new meeting."""
     try:
         meeting = Meeting(
             raw_text=raw_text,
             summary=summary,
             title=title,
-            date=date
+            date=date,
+            created_by_user_id=created_by_user_id,
         )
         session.add(meeting)
         session.commit()
@@ -349,7 +409,12 @@ def add_decisions(session: Session, meeting_id: int, decisions: List[str]) -> No
         raise
 
 
-def add_todos(session: Session, meeting_id: int, todos: List[dict]) -> None:
+def add_todos(
+    session: Session,
+    meeting_id: int,
+    todos: List[dict],
+    assigned_user_id: Optional[int] = None,
+) -> None:
     """Add todos to a meeting."""
     try:
         for todo_data in todos:
@@ -359,7 +424,8 @@ def add_todos(session: Session, meeting_id: int, todos: List[dict]) -> None:
                 owner=todo_data.get("owner"),
                 due_date=todo_data.get("due_date"),
                 status="pending",
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
+                assigned_user_id=todo_data.get("assigned_user_id") or assigned_user_id,
             )
             session.add(todo)
         session.commit()
@@ -385,103 +451,6 @@ def add_participants(session: Session, meeting_id: int, participants: List[str])
         session.rollback()
         LOGGER.exception("Error while adding participants: %s", exc)
         raise
-
-
-def log_todo_event(
-    session: Session,
-    todo_id: int,
-    old_status: Optional[str],
-    new_status: str,
-    source: str = "unknown",
-    note: Optional[str] = None,
-) -> Optional["TodoEvent"]:
-    """
-    Create a TodoEvent row recording a status transition.
-    Must commit or flush safely, without breaking the caller flow.
-    
-    Returns:
-        TodoEvent instance if successful, None on error
-    """
-    try:
-        event = TodoEvent(
-            todo_id=todo_id,
-            old_status=old_status,
-            new_status=new_status,
-            source=source,
-            note=note,
-            created_at=datetime.utcnow()
-        )
-        session.add(event)
-        session.flush()  # Flush to get event.id, but don't commit yet (caller commits)
-        return event
-    except Exception as exc:
-        LOGGER.exception("Error while logging todo event: %s", exc)
-        return None
-
-
-def update_todo_status(
-    session: Session,
-    todo_id: int,
-    new_status: str,
-    source: str,
-    note: Optional[str] = None,
-) -> None:
-    """
-    Update a TODO's status and log the event.
-    Handles timestamp updates based on status.
-    
-    Args:
-        session: SQLAlchemy session
-        todo_id: ID of the todo to update
-        new_status: New status value
-        source: Source of the change (e.g., "ui", "notion_sync")
-        note: Optional note about the change
-    """
-    try:
-        todo = session.query(Todo).filter_by(id=todo_id).first()
-        if not todo:
-            LOGGER.warning("Todo with id %d not found", todo_id)
-            return
-        
-        old_status = todo.status
-        
-        # Only update if status actually changed
-        if old_status != new_status:
-            todo.status = new_status
-            
-            # Update timestamps based on status
-            # Consider in_progress strings
-            if new_status in ["in_progress", "in progress"]:
-                if todo.acknowledged_at is None:
-                    todo.acknowledged_at = datetime.utcnow()
-            
-            # Consider done/completed strings
-            if new_status in ["done", "completed"]:
-                if todo.completed_at is None:
-                    todo.completed_at = datetime.utcnow()
-            
-            # Log the event
-            log_todo_event(
-                session=session,
-                todo_id=todo_id,
-                old_status=old_status,
-                new_status=new_status,
-                source=source,
-                note=note
-            )
-            
-            session.commit()
-            LOGGER.info(
-                "Updated Todo %d status from '%s' to '%s' (source: %s)",
-                todo_id, old_status, new_status, source
-            )
-        else:
-            # Status unchanged, no event logged
-            LOGGER.debug("Todo %d status unchanged (%s), skipping event", todo_id, new_status)
-    
-    except Exception as exc:
-        session.rollback()
-        LOGGER.exception("Error while updating todo status: %s", exc)
 
 
 # Create tables
