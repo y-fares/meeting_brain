@@ -90,12 +90,35 @@ def get_active_provider() -> Optional[str]:
     return None
 
 
+def get_available_providers() -> list[str]:
+    """Return list of available LLM providers in priority order (groq → mistral → gemini)."""
+    providers = []
+    if groq_available:
+        providers.append("groq")
+    if mistral_available:
+        providers.append("mistral")
+    if gemini_available:
+        providers.append("gemini")
+    return providers
+
+
 def load_groq_client() -> Optional[Tuple[object, str]]:
     """Return Groq client and model name, or None if unavailable."""
     if not groq_available or not groq_client:
         LOGGER.warning("GROQ_API_KEY not set")
         return None
     return (groq_client, GROQ_MODEL)
+
+
+def provider_is_available(provider: str) -> bool:
+    """Check if a specific provider is available."""
+    if provider == "groq":
+        return groq_available
+    elif provider == "mistral":
+        return mistral_available
+    elif provider == "gemini":
+        return gemini_available
+    return False
 
 
 def llm_generate(provider: str, prompt: str, temperature: float = 0.3) -> str:

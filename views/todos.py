@@ -91,34 +91,74 @@ def _build_table_data(todos: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return table_data
 
 
-def _render_status_actions(client: MeetingBrainApiClient, selected_id: int) -> bool:
+def _render_status_actions(client: Optional[MeetingBrainApiClient], selected_id: int, use_local_db: bool = False) -> bool:
     col1, col2 = st.columns(2)
     updated = False
 
     with col1:
         if st.button("Mark as acknowledged", type="primary"):
-            try:
-                client.update_todo_status(selected_id, "in_progress", "Marked acknowledged in Streamlit")
-                st.success(f"TODO #{selected_id} marked as acknowledged.")
-                updated = True
-            except ApiClientError as exc:
-                st.error(f"Error acknowledging TODO: {exc}")
+            if use_local_db:
+                try:
+                    from database import create_session, Todo
+                    from datetime import datetime
+                    db_session = create_session()
+                    todo = db_session.query(Todo).filter(Todo.id == selected_id).first()
+                    if todo:
+                        todo.status = "in_progress"
+                        todo.acknowledged_at = datetime.utcnow()
+                        db_session.commit()
+                        st.success(f"TODO #{selected_id} marked as acknowledged (local DB).")
+                        updated = True
+                    else:
+                        st.error(f"TODO #{selected_id} not found in local database.")
+                    db_session.close()
+                except Exception as exc:
+                    st.error(f"Error acknowledging TODO in local DB: {exc}")
+            else:
+                try:
+                    client.update_todo_status(selected_id, "in_progress", "Marked acknowledged in Streamlit")
+                    st.success(f"TODO #{selected_id} marked as acknowledged.")
+                    updated = True
+                except ApiClientError as exc:
+                    st.error(f"Error acknowledging TODO: {exc}")
 
     with col2:
         if st.button("Mark as done", type="primary"):
-            try:
-                client.update_todo_status(selected_id, "completed", "Marked done in Streamlit")
-                st.success(f"TODO #{selected_id} marked as done.")
-                updated = True
-            except ApiClientError as exc:
-                st.error(f"Error completing TODO: {exc}")
+            if use_local_db:
+                try:
+                    from database import create_session, Todo
+                    from datetime import datetime
+                    db_session = create_session()
+                    todo = db_session.query(Todo).filter(Todo.id == selected_id).first()
+                    if todo:
+                        todo.status = "completed"
+                        todo.completed_at = datetime.utcnow()
+                        db_session.commit()
+                        st.success(f"TODO #{selected_id} marked as done (local DB).")
+                        updated = True
+                    else:
+                        st.error(f"TODO #{selected_id} not found in local database.")
+                    db_session.close()
+                except Exception as exc:
+                    st.error(f"Error completing TODO in local DB: {exc}")
+            else:
+                try:
+                    client.update_todo_status(selected_id, "completed", "Marked done in Streamlit")
+                    st.success(f"TODO #{selected_id} marked as done.")
+                    updated = True
+                except ApiClientError as exc:
+                    st.error(f"Error completing TODO: {exc}")
 
     return updated
 
 
-def _render_assignment_action(client: MeetingBrainApiClient, selected_id: int) -> bool:
+def _render_assignment_action(client: Optional[MeetingBrainApiClient], selected_id: int, use_local_db: bool = False) -> bool:
     updated = False
     st.subheader("Assignment")
+
+    if use_local_db:
+        st.info("⚠️ Assignment requires API (multi-user feature). Local mode supports status updates only.")
+        return False
 
     assignee_raw = st.text_input(
         "Assigned user ID",
@@ -150,12 +190,14 @@ def render_todos_view() -> None:
 
     todos = None
     client = _get_client()
+    use_local_db = False
 
     try:
         todos = client.list_todos()
     except Exception as exc:
         st.warning(f"⚠️ API unavailable: {exc}")
         st.info("Loading from local database instead...")
+        use_local_db = True
         try:
             from database import create_session, Todo, Meeting
             db_session = create_session()
@@ -204,9 +246,9 @@ def render_todos_view() -> None:
     st.divider()
     st.subheader("Status")
 
-    updated = _render_status_actions(client, selected_id)
+    updated = _render_status_actions(client if not use_local_db else None, selected_id, use_local_db=use_local_db)
     st.divider()
-    updated = _render_assignment_action(client, selected_id) or updated
+    updated = _render_assignment_action(client if not use_local_db else None, selected_id, use_local_db=use_local_db) or updated
 
     if updated:
         st.rerun()

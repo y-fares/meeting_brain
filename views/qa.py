@@ -21,30 +21,36 @@ def render_qa_view() -> None:
     )
     st.divider()
     
-    # Provider selection
+    # Provider selection with proper defaults
     st.markdown("### 🤖 LLM Provider Selection")
+
+    # Get available providers in priority order (groq → mistral → gemini)
+    from llm_providers import get_available_providers, provider_is_available
+
+    available_providers = get_available_providers()
+
+    if not available_providers:
+        st.error("❌ No LLM providers configured. Please set at least one: GROQ_API_KEY, MISTRAL_API_KEY, or GOOGLE_API_KEY")
+        return
+
     provider = st.selectbox(
         "Choose LLM provider:",
-        ["mistral", "gemini", "groq"],
+        available_providers,
         index=0,
-        help="Select which LLM provider to use for answering questions. Mistral requires MISTRAL_API_KEY, Gemini requires GOOGLE_API_KEY, Groq requires GROQ_API_KEY."
+        help="Auto-configured by available API keys. Groq is fastest, Mistral is reliable, Gemini is accurate."
     )
-    
+
     # Show provider status
-    import os
-    from dotenv import load_dotenv
-    load_dotenv()
-    
     col1, col2, col3 = st.columns(3)
     with col1:
-        mistral_status = "✅ Available" if os.getenv("MISTRAL_API_KEY") else "❌ Not configured"
-        st.caption(f"Mistral: {mistral_status}")
-    with col2:
-        gemini_status = "✅ Available" if os.getenv("GOOGLE_API_KEY") else "❌ Not configured"
-        st.caption(f"Gemini: {gemini_status}")
-    with col3:
-        groq_status = "✅ Available" if os.getenv("GROQ_API_KEY") else "❌ Not configured"
+        groq_status = "✅ Available (fastest)" if provider_is_available("groq") else "❌ Not configured"
         st.caption(f"Groq: {groq_status}")
+    with col2:
+        mistral_status = "✅ Available (reliable)" if provider_is_available("mistral") else "❌ Not configured"
+        st.caption(f"Mistral: {mistral_status}")
+    with col3:
+        gemini_status = "✅ Available (accurate)" if provider_is_available("gemini") else "❌ Not configured"
+        st.caption(f"Gemini: {gemini_status}")
     
     st.divider()
     
