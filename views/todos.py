@@ -250,6 +250,12 @@ def render_todos_view() -> None:
     # Use session state to ensure flag is preserved across reruns
     use_local_db = st.session_state.get("use_local_db", use_local_db)
 
+    # Debug: show current mode
+    if use_local_db:
+        st.info("📌 Running in LOCAL DB mode (API unavailable)")
+    else:
+        st.info("📌 Running in API mode")
+
     updated = _render_status_actions(client if not use_local_db else None, selected_id, use_local_db=use_local_db)
     st.divider()
     updated = _render_assignment_action(client if not use_local_db else None, selected_id, use_local_db=use_local_db) or updated
