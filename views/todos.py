@@ -198,6 +198,7 @@ def render_todos_view() -> None:
         st.warning(f"⚠️ API unavailable: {exc}")
         st.info("Loading from local database instead...")
         use_local_db = True
+        st.session_state["use_local_db"] = True
         try:
             from database import create_session, Todo, Meeting
             db_session = create_session()
@@ -245,6 +246,9 @@ def render_todos_view() -> None:
 
     st.divider()
     st.subheader("Status")
+
+    # Use session state to ensure flag is preserved across reruns
+    use_local_db = st.session_state.get("use_local_db", use_local_db)
 
     updated = _render_status_actions(client if not use_local_db else None, selected_id, use_local_db=use_local_db)
     st.divider()
