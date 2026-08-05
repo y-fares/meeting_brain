@@ -30,6 +30,25 @@ from llm_providers import llm_generate, get_active_provider
 # Load environment variables from .env file
 load_dotenv()
 
+# Get version/commit info for debugging
+def _get_commit_hash() -> str:
+    """Get current git commit hash for deployment verification."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(__file__)
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return "unknown"
+
+COMMIT_HASH = _get_commit_hash()
+
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
@@ -420,4 +439,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # Add version badge to sidebar
+    st.sidebar.divider()
+    st.sidebar.caption(f"Version: {COMMIT_HASH}")
+
     main()
