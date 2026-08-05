@@ -156,7 +156,7 @@ def render_analytics_view() -> None:
             st.markdown("#### TODOs by Owner and Status")
             todos_by_owner_status = df_todos.groupby(["owner", "status"]).size().reset_index(name="count")
             todos_by_owner_status = todos_by_owner_status.sort_values(["owner", "status"])
-            st.dataframe(todos_by_owner_status, width='stretch', hide_index=True)
+            st.dataframe(todos_by_owner_status)
             st.divider()
         
         # b) TODOs by meeting and status
@@ -164,7 +164,7 @@ def render_analytics_view() -> None:
             st.markdown("#### TODOs by Meeting and Status")
             todos_by_meeting_status = df_todos.groupby(["meeting_title", "status"]).size().reset_index(name="count")
             todos_by_meeting_status = todos_by_meeting_status.sort_values(["meeting_title", "status"])
-            st.dataframe(todos_by_meeting_status, width='stretch', hide_index=True)
+            st.dataframe(todos_by_meeting_status)
             st.divider()
         
         # c) Decisions by meeting
@@ -172,7 +172,7 @@ def render_analytics_view() -> None:
             st.markdown("#### Decisions by Meeting")
             decisions_by_meeting = df_decisions.groupby("meeting_title").size().reset_index(name="count")
             decisions_by_meeting = decisions_by_meeting.sort_values("count", ascending=False)
-            st.dataframe(decisions_by_meeting, width='stretch', hide_index=True)
+            st.dataframe(decisions_by_meeting)
             st.divider()
         
         # d) Status changes over time
@@ -191,7 +191,7 @@ def render_analytics_view() -> None:
                     df_events = pd.DataFrame(events_data)
                     events_by_date = df_events.groupby("date").size().reset_index(name="count")
                     events_by_date = events_by_date.sort_values("date", ascending=False)
-                    st.dataframe(events_by_date, width='stretch', hide_index=True)
+                    st.dataframe(events_by_date)
                     st.divider()
         except Exception as exc:
             LOGGER.debug("Error loading status changes: %s", exc)

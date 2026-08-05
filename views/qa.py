@@ -25,9 +25,9 @@ def render_qa_view() -> None:
     st.markdown("### 🤖 LLM Provider Selection")
     provider = st.selectbox(
         "Choose LLM provider:",
-        ["gemini", "groq"],
+        ["mistral", "gemini", "groq"],
         index=0,
-        help="Select which LLM provider to use for answering questions. Gemini requires GOOGLE_API_KEY, Groq requires GROQ_API_KEY."
+        help="Select which LLM provider to use for answering questions. Mistral requires MISTRAL_API_KEY, Gemini requires GOOGLE_API_KEY, Groq requires GROQ_API_KEY."
     )
     
     # Show provider status
@@ -35,11 +35,14 @@ def render_qa_view() -> None:
     from dotenv import load_dotenv
     load_dotenv()
     
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
+        mistral_status = "✅ Available" if os.getenv("MISTRAL_API_KEY") else "❌ Not configured"
+        st.caption(f"Mistral: {mistral_status}")
+    with col2:
         gemini_status = "✅ Available" if os.getenv("GOOGLE_API_KEY") else "❌ Not configured"
         st.caption(f"Gemini: {gemini_status}")
-    with col2:
+    with col3:
         groq_status = "✅ Available" if os.getenv("GROQ_API_KEY") else "❌ Not configured"
         st.caption(f"Groq: {groq_status}")
     
@@ -87,21 +90,21 @@ def render_qa_view() -> None:
             if meetings:
                 st.markdown("#### Meetings")
                 df_meetings = pd.DataFrame(meetings)
-                st.dataframe(df_meetings, width='stretch', hide_index=True)
+                st.dataframe(df_meetings)
             
             # Decisions
             decisions = context.get("decisions", [])
             if decisions:
                 st.markdown("#### Decisions")
                 df_decisions = pd.DataFrame(decisions)
-                st.dataframe(df_decisions, width='stretch', hide_index=True)
+                st.dataframe(df_decisions)
             
             # Todos
             todos = context.get("todos", [])
             if todos:
                 st.markdown("#### TODOs")
                 df_todos = pd.DataFrame(todos)
-                st.dataframe(df_todos, width='stretch', hide_index=True)
+                st.dataframe(df_todos)
             
             # Show message if no data
             if not meetings and not decisions and not todos:

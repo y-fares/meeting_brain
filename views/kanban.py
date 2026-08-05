@@ -62,7 +62,7 @@ def render_kanban_view() -> None:
                             })
                         
                         df_cards = pd.DataFrame(cards_data)
-                        st.dataframe(df_cards, width='stretch', hide_index=True)
+                        st.dataframe(df_cards)
                     else:
                         st.info("No cards in this column.")
                     
@@ -95,7 +95,7 @@ def render_kanban_view() -> None:
                     })
                 
                 df_todos = pd.DataFrame(todos_data)
-                st.dataframe(df_todos, width='stretch', hide_index=True)
+                st.dataframe(df_todos)
         
         st.divider()
         

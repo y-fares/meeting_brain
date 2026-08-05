@@ -74,13 +74,13 @@ def render_insights_view() -> None:
                                 # Check if evidence can be converted to DataFrame
                                 if "overdue_todos" in evidence and evidence["overdue_todos"]:
                                     df = pd.DataFrame(evidence["overdue_todos"])
-                                    st.dataframe(df, width='stretch')
+                                    st.dataframe(df)
                                 elif "owners" in evidence and evidence["owners"]:
                                     df = pd.DataFrame(evidence["owners"])
-                                    st.dataframe(df, width='stretch')
+                                    st.dataframe(df)
                                 elif "stale_tasks" in evidence and evidence["stale_tasks"]:
                                     df = pd.DataFrame(evidence["stale_tasks"])
-                                    st.dataframe(df, width='stretch')
+                                    st.dataframe(df)
                                 else:
                                     st.json(evidence)
                             else:
@@ -108,7 +108,7 @@ def render_insights_view() -> None:
                 st.info(result["answer"])
                 if result.get("evidence", {}).get("overdue_todos"):
                     df = pd.DataFrame(result["evidence"]["overdue_todos"])
-                    st.dataframe(df, width='stretch')
+                    st.dataframe(df)
         
         with col2:
             if st.button("⚡ Goulots d'étranglement"):
@@ -116,7 +116,7 @@ def render_insights_view() -> None:
                 st.info(result["answer"])
                 if result.get("evidence", {}).get("stale_tasks"):
                     df = pd.DataFrame(result["evidence"]["stale_tasks"][:5])
-                    st.dataframe(df, width='stretch')
+                    st.dataframe(df)
         
         col3, col4 = st.columns(2)
         
@@ -126,7 +126,7 @@ def render_insights_view() -> None:
                 st.info(result["answer"])
                 if result.get("evidence", {}).get("owners"):
                     df = pd.DataFrame(result["evidence"]["owners"][:5])
-                    st.dataframe(df, width='stretch')
+                    st.dataframe(df)
         
         with col4:
             if st.button("📊 Résumé d'avancement"):

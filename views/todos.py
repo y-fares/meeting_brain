@@ -140,29 +140,57 @@ def _render_assignment_action(client: MeetingBrainApiClient, selected_id: int) -
 
 def render_todos_view() -> None:
     """
-    Render the 'All TODOs' view through the FastAPI backend.
+    Render the 'All TODOs' view through the FastAPI backend or local database.
     """
     _render_auth_panel()
 
     st.title("All TODOs")
-    st.markdown("View and manage action items through the API.")
+    st.markdown("View and manage action items.")
     st.divider()
 
+    todos = None
     client = _get_client()
 
     try:
         todos = client.list_todos()
-    except ApiClientError as exc:
-        st.error(f"Error loading TODOs from API: {exc}")
-        st.info("Start FastAPI with `uvicorn api.main:app --reload` and configure a token if auth is enabled.")
-        return
+    except Exception as exc:
+        st.warning(f"⚠️ API unavailable: {exc}")
+        st.info("Loading from local database instead...")
+        try:
+            from database import create_session, Todo, Meeting
+            db_session = create_session()
+            db_todos = db_session.query(Todo).all()
+            db_meetings = {m.id: m for m in db_session.query(Meeting).all()}
+
+            todos = []
+            for todo in db_todos:
+                meeting = db_meetings.get(todo.meeting_id)
+                todos.append({
+                    "id": todo.id,
+                    "task": todo.task,
+                    "owner": todo.owner,
+                    "assigned_user_id": None,
+                    "status": todo.status,
+                    "due_date": todo.due_date,
+                    "meeting_id": todo.meeting_id,
+                    "meeting_title": meeting.title if meeting else "",
+                    "meeting_date": meeting.date if meeting else None,
+                    "created_at": todo.created_at,
+                    "acknowledged_at": todo.acknowledged_at,
+                    "completed_at": todo.completed_at,
+                })
+            db_session.close()
+        except Exception as db_exc:
+            st.error(f"Error loading TODOs from local database: {db_exc}")
+            st.info("Start FastAPI with `uvicorn api.main:app --reload` or configure local database.")
+            return
 
     if not todos:
         st.info("No TODOs found yet. Analyze a meeting to create action items.")
         return
 
     table_data = _build_table_data(todos)
-    st.dataframe(pd.DataFrame(table_data), width="stretch", hide_index=True)
+    st.dataframe(pd.DataFrame(table_data))
 
     st.divider()
 

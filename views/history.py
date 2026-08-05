@@ -69,7 +69,7 @@ def render_history_view():
                             "Created": todo.created_at.strftime("%Y-%m-%d") if todo.created_at else "N/A"
                         })
                     df = pd.DataFrame(todos_data)
-                    st.dataframe(df, width='stretch', hide_index=True)
+                    st.dataframe(df)
                 else:
                     st.info("No TODOs registered for this meeting.")
                 
