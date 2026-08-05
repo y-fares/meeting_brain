@@ -45,9 +45,14 @@ mistral_available = False
 mistral_client = None
 try:
     if MISTRAL_API_KEY:
-        from mistralai import Mistral
-        mistral_client = Mistral(api_key=MISTRAL_API_KEY)
-        mistral_available = True
+        try:
+            from mistralai import Mistral
+            mistral_client = Mistral(api_key=MISTRAL_API_KEY)
+            mistral_available = True
+        except ImportError:
+            from mistralai.client import MistralClient
+            mistral_client = MistralClient(api_key=MISTRAL_API_KEY)
+            mistral_available = True
     else:
         LOGGER.warning("MISTRAL_API_KEY not set — Mistral unavailable.")
 except Exception as exc:
