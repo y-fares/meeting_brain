@@ -9,13 +9,17 @@ import io
 
 from api.deps import get_db
 from api.repositories import export_meetings_df, export_todos_df, export_decisions_df
-from api.security import require_auth
+from api.security import require_configured_auth
+from database import User
 
-router = APIRouter(dependencies=[Depends(require_auth)])
+router = APIRouter()
 
 
 @router.get("/exports/meetings.csv")
-def export_meetings_csv(db: Session = Depends(get_db)) -> StreamingResponse:
+def export_meetings_csv(
+    current_user: User | None = Depends(require_configured_auth),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
     """
     Export meetings as CSV.
     
@@ -25,7 +29,7 @@ def export_meetings_csv(db: Session = Depends(get_db)) -> StreamingResponse:
     Returns:
         CSV file download
     """
-    df = export_meetings_df(session=db)
+    df = export_meetings_df(session=db, current_user=current_user)
     csv_string = df.to_csv(index=False)
     csv_bytes = csv_string.encode("utf-8")
     
@@ -39,7 +43,10 @@ def export_meetings_csv(db: Session = Depends(get_db)) -> StreamingResponse:
 
 
 @router.get("/exports/todos.csv")
-def export_todos_csv(db: Session = Depends(get_db)) -> StreamingResponse:
+def export_todos_csv(
+    current_user: User | None = Depends(require_configured_auth),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
     """
     Export TODOs as CSV.
     
@@ -49,7 +56,7 @@ def export_todos_csv(db: Session = Depends(get_db)) -> StreamingResponse:
     Returns:
         CSV file download
     """
-    df = export_todos_df(session=db)
+    df = export_todos_df(session=db, current_user=current_user)
     csv_string = df.to_csv(index=False)
     csv_bytes = csv_string.encode("utf-8")
     
@@ -63,7 +70,10 @@ def export_todos_csv(db: Session = Depends(get_db)) -> StreamingResponse:
 
 
 @router.get("/exports/decisions.csv")
-def export_decisions_csv(db: Session = Depends(get_db)) -> StreamingResponse:
+def export_decisions_csv(
+    current_user: User | None = Depends(require_configured_auth),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
     """
     Export decisions as CSV.
     
@@ -73,7 +83,7 @@ def export_decisions_csv(db: Session = Depends(get_db)) -> StreamingResponse:
     Returns:
         CSV file download
     """
-    df = export_decisions_df(session=db)
+    df = export_decisions_df(session=db, current_user=current_user)
     csv_string = df.to_csv(index=False)
     csv_bytes = csv_string.encode("utf-8")
     

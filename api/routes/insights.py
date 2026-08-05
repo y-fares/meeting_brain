@@ -7,20 +7,22 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
-from api.security import require_auth
+from api.security import require_configured_auth
+from database import User
 from services.insights_engine import (
     answer_insights_question,
     get_owner_load,
     get_bottlenecks
 )
 
-router = APIRouter(dependencies=[Depends(require_auth)])
+router = APIRouter()
 
 
 @router.get("/answer")
 def get_insights_answer(
     q: str = Query(..., description="Question to answer"),
     use_llm: bool = Query(default=False, description="Use LLM to enhance answer"),
+    current_user: User | None = Depends(require_configured_auth),
     db: Session = Depends(get_db)
 ) -> dict:
     """
@@ -37,12 +39,16 @@ def get_insights_answer(
     return answer_insights_question(
         session=db,
         question=q,
-        use_llm=use_llm
+        use_llm=use_llm,
+        current_user=current_user,
     )
 
 
 @router.get("/owner_load")
-def get_owner_load_endpoint(db: Session = Depends(get_db)) -> list:
+def get_owner_load_endpoint(
+    current_user: User | None = Depends(require_configured_auth),
+    db: Session = Depends(get_db),
+) -> list:
     """
     Get owner workload statistics.
     
@@ -52,11 +58,14 @@ def get_owner_load_endpoint(db: Session = Depends(get_db)) -> list:
     Returns:
         List of owner load dictionaries
     """
-    return get_owner_load(session=db)
+    return get_owner_load(session=db, current_user=current_user)
 
 
 @router.get("/bottlenecks")
-def get_bottlenecks_endpoint(db: Session = Depends(get_db)) -> dict:
+def get_bottlenecks_endpoint(
+    current_user: User | None = Depends(require_configured_auth),
+    db: Session = Depends(get_db),
+) -> dict:
     """
     Get project bottlenecks.
     
@@ -66,5 +75,5 @@ def get_bottlenecks_endpoint(db: Session = Depends(get_db)) -> dict:
     Returns:
         Dict with top overdue owners, most loaded owners, and stale tasks
     """
-    return get_bottlenecks(session=db)
+    return get_bottlenecks(session=db, current_user=current_user)
 

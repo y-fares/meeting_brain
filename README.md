@@ -64,7 +64,8 @@ L'application s'intègre nativement avec **Notion** pour une gestion complète d
 ### 🚀 API REST (FastAPI)
 
 - **API REST complète** : Endpoints pour accéder à toutes les données (meetings, todos, decisions, analytics)
-- **Authentification optionnelle** : Protection par token Bearer (configurable)
+- **Authentification configurable** : mode dev ouvert, token de service, ou comptes utilisateurs avec tokens Bearer
+- **Multi-utilisateur** : rôles `admin`, `member`, `viewer`, ownership des réunions et assignation des TODOs
 - **Documentation interactive** : Swagger UI disponible sur `/docs`
 - **Health check** : Endpoint de santé publique
 - **Gestion d'erreurs standardisée** : Réponses d'erreur cohérentes
@@ -123,6 +124,10 @@ L'application s'intègre nativement avec **Notion** pour une gestion complète d
    
    # API Authentication (optionnel, pour protéger l'API)
    API_AUTH_TOKEN=your_api_auth_token
+   AUTH_REQUIRE_LOGIN=false
+   MEETING_BRAIN_DB_URL=
+   MEETING_BRAIN_API_URL=http://localhost:8000
+   MEETING_BRAIN_API_TOKEN=
    
    # Slack Integration (optionnel, pour l'intégration Slack)
    SLACK_SIGNING_SECRET=your_slack_signing_secret
@@ -219,12 +224,12 @@ L'application propose 9 vues principales accessibles via la barre latérale :
 
 3. **Gérer les TODOs**
    - Naviguer vers la page "All TODOs"
-   - Voir tous les TODOs de toutes les réunions dans un tableau
+   - Voir les TODOs autorisés par l'API dans un tableau
    - Sélectionner un TODO pour :
      - Marquer comme "acknowledged" (en cours)
      - Marquer comme "done" (terminé)
-     - Créer une page Notion (si non lié)
-   - Utiliser les boutons de synchronisation pour synchroniser avec Notion
+     - Modifier l'utilisateur assigné si vos permissions le permettent
+   - La page consomme FastAPI via `MEETING_BRAIN_API_URL` et applique donc les règles d'auth/ownership
 
 4. **Synchroniser avec Notion Kanban**
    - Naviguer vers la page "Kanban Sync"
@@ -262,6 +267,9 @@ L'application propose 9 vues principales accessibles via la barre latérale :
    - Lancer l'API avec `uvicorn api.main:app --reload`
    - Accéder à la documentation interactive sur `http://localhost:8000/docs`
    - Utiliser les endpoints pour intégrer avec d'autres outils
+   - Activer `AUTH_REQUIRE_LOGIN=true` pour utiliser les comptes utilisateurs
+   - Créer le premier admin avec `POST /auth/bootstrap`
+   - Utiliser `PATCH /todos/{id}/status` et `PATCH /todos/{id}/assignee` pour modifier les TODOs via l'API
 
 10. **Intégration Slack**
     - Configurer le Slash Command `/insights` dans Slack
@@ -285,6 +293,7 @@ PSTB_Project/
 ├── api/                        # API REST FastAPI
 │   ├── main.py                 # Point d'entrée FastAPI
 │   ├── deps.py                 # Dépendances (DB, auth)
+│   ├── auth_service.py         # Hash de mots de passe, tokens utilisateurs
 │   ├── security.py             # Authentification API
 │   ├── slack_security.py       # Vérification signatures Slack
 │   ├── errors.py               # Gestion d'erreurs standardisée
@@ -292,6 +301,7 @@ PSTB_Project/
 │   ├── repositories.py         # Couche d'accès aux données
 │   └── routes/                 # Routes API
 │       ├── health.py           # Health check
+│       ├── auth.py             # Bootstrap, login, utilisateurs
 │       ├── meetings.py         # Endpoints réunions
 │       ├── todos.py            # Endpoints TODOs
 │       ├── decisions.py        # Endpoints décisions
@@ -301,6 +311,7 @@ PSTB_Project/
 │       └── slack.py            # Endpoints Slack
 ├── services/                   # Services métier
 │   ├── insights_engine.py      # Moteur Insights (Feature 21)
+│   ├── api_client.py           # Client HTTP Streamlit -> FastAPI
 │   ├── text_pipeline.py        # Pipeline de traitement de texte
 │   └── demo_loader.py          # Chargement données de démo
 ├── views/                      # Vues Streamlit
@@ -338,6 +349,7 @@ PSTB_Project/
 - **Google Gemini** : Alternative LLM (optionnel)
 - **NLTK** : Bibliothèque de traitement du langage naturel
 - **SQLAlchemy** : ORM pour la gestion de la base de données
+- **PostgreSQL / psycopg** : Base recommandée pour le multi-utilisateur en production
 - **Pydantic** : Validation de données et schémas
 - **Pandas** : Manipulation et analyse de données
 - **NumPy** : Calculs numériques
@@ -355,6 +367,7 @@ PSTB_Project/
 - `title` : Titre de la réunion (optionnel)
 - `summary` : Résumé généré par l'IA
 - `raw_text` : Texte brut des notes
+- `created_by_user_id` : Utilisateur créateur de la réunion (optionnel)
 
 ### Todo
 - `id` : Identifiant unique
@@ -364,7 +377,17 @@ PSTB_Project/
 - `due_date` : Date d'échéance
 - `status` : Statut (pending, in_progress, completed)
 - `notion_page_id` : ID de la page Notion liée (optionnel)
+- `assigned_user_id` : Utilisateur assigné au TODO (optionnel)
 - `created_at`, `acknowledged_at`, `completed_at` : Timestamps
+
+### User
+- `id` : Identifiant unique
+- `email` : Email de connexion
+- `display_name` : Nom affiché
+- `role` : Rôle (`admin`, `member`, `viewer`)
+- `password_hash` : Hash PBKDF2 du mot de passe
+- `api_token_hash` : Hash du token Bearer actif
+- `created_at`, `disabled_at` : Timestamps de cycle de vie
 
 ### Decision
 - `id` : Identifiant unique
@@ -397,12 +420,46 @@ GROQ_MODEL=llama-3.1-8b-instant
 
 ### Base de données
 
-La base de données SQLite est créée automatiquement au premier lancement. Pour réinitialiser :
+La base de données SQLite est créée automatiquement au premier lancement. Elle convient au développement local.
+
+Pour un usage multi-utilisateur, utilisez PostgreSQL via `MEETING_BRAIN_DB_URL` :
+```env
+MEETING_BRAIN_DB_URL=postgresql+psycopg://user:password@host:5432/meeting_brain
+```
+
+Pour réinitialiser la base SQLite locale :
 ```bash
 # Supprimer le fichier de base de données
 rm meeting_brain.db
 # Relancer l'application pour recréer les tables
 ```
+
+### Authentification API
+
+Trois modes sont disponibles :
+
+1. **Mode développement** : si `API_AUTH_TOKEN` est vide et `AUTH_REQUIRE_LOGIN=false`, les endpoints protégés restent accessibles localement.
+2. **Token de service** : si `API_AUTH_TOKEN` est défini, les endpoints utilisent `Authorization: Bearer <token>`.
+3. **Comptes utilisateurs** : si `AUTH_REQUIRE_LOGIN=true`, utilisez `/auth/bootstrap`, `/auth/login`, `/auth/me` et `/auth/users`.
+
+Créer le premier admin :
+```bash
+curl -X POST http://localhost:8000/auth/bootstrap \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"change-this-password","display_name":"Admin"}'
+```
+
+Se connecter :
+```bash
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"change-this-password"}'
+```
+
+Rôles disponibles :
+- `admin` : voit tout, crée des utilisateurs, assigne les TODOs
+- `member` : voit ses réunions créées et ses TODOs assignés, peut les mettre à jour
+- `viewer` : lecture seule dans son périmètre
 
 ## 🐛 Dépannage
 
@@ -525,6 +582,17 @@ rm meeting_brain.db
   - Support du flag `--llm`
   - Endpoints `/slack/commands` et `/slack/events`
 
+### Sprint 13
+- ✅ Authentification multi-utilisateur
+  - Bootstrap du premier admin
+  - Login utilisateur avec tokens Bearer hashés
+  - Rôles `admin`, `member`, `viewer`
+  - Ownership des réunions (`created_by_user_id`)
+  - Assignation des TODOs (`assigned_user_id`)
+  - Filtrage automatique des endpoints lecture selon le périmètre utilisateur
+  - Endpoints `PATCH /todos/{id}/status` et `PATCH /todos/{id}/assignee`
+  - Support PostgreSQL via `MEETING_BRAIN_DB_URL`
+
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues ! N'hésitez pas à :
@@ -562,6 +630,10 @@ pip install -r requirements-dev.txt
    - `GROQ_MODEL`: Modèle Groq à utiliser (défaut: `llama-3.1-8b-instant`)
    - `NOTION_API_KEY` et `NOTION_DATABASE_ID`: Pour l'intégration Notion (optionnel)
    - `API_AUTH_TOKEN`: Token d'authentification pour l'API (optionnel en dev)
+   - `AUTH_REQUIRE_LOGIN`: Active l'authentification par comptes utilisateurs (`true` en production)
+   - `MEETING_BRAIN_DB_URL`: URL SQLAlchemy de la base, PostgreSQL recommandé en multi-utilisateur
+   - `MEETING_BRAIN_API_URL`: URL FastAPI utilisée par les vues Streamlit migrées vers l'API
+   - `MEETING_BRAIN_API_TOKEN`: Token Bearer utilisé par Streamlit en mode token de service
    - `SLACK_SIGNING_SECRET`: Secret de signature Slack (optionnel, pour l'intégration Slack)
    - `GOOGLE_API_KEY`: Clé API Google pour Gemini (optionnel, pour Q&A avec Gemini)
 
@@ -618,6 +690,39 @@ Si `API_AUTH_TOKEN` n'est pas défini, l'API fonctionne en mode développement (
   - `POST /slack/events` (Events API handler)
 
 Consultez la documentation interactive sur `http://localhost:8000/docs` pour plus de détails.
+
+### Auth multi-utilisateur et ownership
+
+Variables utiles:
+
+```env
+AUTH_REQUIRE_LOGIN=true
+API_AUTH_TOKEN=
+MEETING_BRAIN_DB_URL=postgresql+psycopg://user:password@host:5432/meeting_brain
+MEETING_BRAIN_API_URL=http://localhost:8000
+MEETING_BRAIN_API_TOKEN=
+```
+
+Modes supportés:
+
+- `API_AUTH_TOKEN` défini: token de service unique via `Authorization: Bearer <token>`.
+- `AUTH_REQUIRE_LOGIN=true`: comptes utilisateurs, tokens Bearer par utilisateur.
+- `AUTH_REQUIRE_LOGIN=false` sans `API_AUTH_TOKEN`: mode développement sans authentification.
+
+Endpoints auth:
+
+- `POST /auth/bootstrap`: créer le premier admin quand aucun utilisateur n'existe.
+- `POST /auth/login`: obtenir un token utilisateur.
+- `GET /auth/me`: lire l'utilisateur courant.
+- `POST /auth/users`: créer un utilisateur, admin requis.
+
+Rôles:
+
+- `admin`: voit tout, crée les utilisateurs, assigne les TODOs.
+- `member`: voit ses réunions créées et ses TODOs assignés; peut mettre à jour ces TODOs.
+- `viewer`: lecture seule dans son périmètre.
+
+Les endpoints de lecture (`/meetings`, `/todos`, `/decisions`, `/analytics`, `/exports`, `/insights`) appliquent automatiquement ce périmètre en mode utilisateurs. Les nouveaux endpoints `PATCH /todos/{id}/status` et `PATCH /todos/{id}/assignee` permettent de modifier les TODOs via l'API avec contrôles de permissions.
 
 ### Utilisation de l'intégration Slack
 
