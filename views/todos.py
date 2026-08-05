@@ -191,42 +191,48 @@ def render_todos_view() -> None:
     todos = None
     client = _get_client()
     use_local_db = False
+    api_url = get_api_base_url()
 
-    try:
-        todos = client.list_todos()
-    except Exception as exc:
-        st.warning(f"⚠️ API unavailable: {exc}")
-        st.info("Loading from local database instead...")
+    # If API is disabled in config, skip API and go straight to local DB
+    if not api_url:
         use_local_db = True
-        st.session_state["use_local_db"] = True
+        st.info("📌 API disabled — Using local database mode")
+    else:
         try:
-            from database import create_session, Todo, Meeting
-            db_session = create_session()
-            db_todos = db_session.query(Todo).all()
-            db_meetings = {m.id: m for m in db_session.query(Meeting).all()}
+            todos = client.list_todos()
+        except Exception as exc:
+            st.warning(f"⚠️ API unavailable: {exc}")
+            st.info("Loading from local database instead...")
+            use_local_db = True
+            st.session_state["use_local_db"] = True
+            try:
+                from database import create_session, Todo, Meeting
+                db_session = create_session()
+                db_todos = db_session.query(Todo).all()
+                db_meetings = {m.id: m for m in db_session.query(Meeting).all()}
 
-            todos = []
-            for todo in db_todos:
-                meeting = db_meetings.get(todo.meeting_id)
-                todos.append({
-                    "id": todo.id,
-                    "task": todo.task,
-                    "owner": todo.owner,
-                    "assigned_user_id": None,
-                    "status": todo.status,
-                    "due_date": todo.due_date,
-                    "meeting_id": todo.meeting_id,
-                    "meeting_title": meeting.title if meeting else "",
-                    "meeting_date": meeting.date if meeting else None,
-                    "created_at": todo.created_at,
-                    "acknowledged_at": todo.acknowledged_at,
-                    "completed_at": todo.completed_at,
-                })
-            db_session.close()
-        except Exception as db_exc:
-            st.error(f"Error loading TODOs from local database: {db_exc}")
-            st.info("Start FastAPI with `uvicorn api.main:app --reload` or configure local database.")
-            return
+                todos = []
+                for todo in db_todos:
+                    meeting = db_meetings.get(todo.meeting_id)
+                    todos.append({
+                        "id": todo.id,
+                        "task": todo.task,
+                        "owner": todo.owner,
+                        "assigned_user_id": None,
+                        "status": todo.status,
+                        "due_date": todo.due_date,
+                        "meeting_id": todo.meeting_id,
+                        "meeting_title": meeting.title if meeting else "",
+                        "meeting_date": meeting.date if meeting else None,
+                        "created_at": todo.created_at,
+                        "acknowledged_at": todo.acknowledged_at,
+                        "completed_at": todo.completed_at,
+                    })
+                db_session.close()
+            except Exception as db_exc:
+                st.error(f"Error loading TODOs from local database: {db_exc}")
+                st.info("Start FastAPI with `uvicorn api.main:app --reload` or configure local database.")
+                return
 
     if not todos:
         st.info("No TODOs found yet. Analyze a meeting to create action items.")

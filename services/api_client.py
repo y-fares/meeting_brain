@@ -19,7 +19,10 @@ class ApiClientError(Exception):
 
 def get_api_base_url() -> str:
     """Read the FastAPI base URL for Streamlit-to-API calls."""
-    return os.getenv("MEETING_BRAIN_API_URL", DEFAULT_API_BASE_URL).rstrip("/")
+    url = os.getenv("MEETING_BRAIN_API_URL", DEFAULT_API_BASE_URL)
+    if url.lower() == "disabled":
+        return ""
+    return url.rstrip("/")
 
 
 def get_default_api_token() -> Optional[str]:
