@@ -288,7 +288,11 @@ def display_llm_results(
 def main() -> None:
     """Main entry point for the Streamlit UI."""
     st.set_page_config(page_title="Meeting Brain", layout="wide")
-    
+
+    # Ensure database schema is up to date
+    from database import ensure_schema
+    ensure_schema()
+
     # Sidebar navigation
     st.sidebar.title("🧠 Meeting Brain")
     st.sidebar.markdown("---")

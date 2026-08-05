@@ -9,7 +9,7 @@ from typing import Any, List
 import pandas as pd
 import streamlit as st
 
-from database import create_session, Todo, Meeting
+from database import create_session, Todo, Meeting, TodoEvent
 
 
 def _format_datetime(value: Any) -> str:
@@ -40,19 +40,29 @@ def _build_table_data(todos: List[Todo], meetings_by_id: dict) -> List[dict]:
 
 
 def _update_todo_status(session, todo_id: int, new_status: str) -> bool:
-    """Update TODO status in database."""
+    """Update TODO status in database and create audit event."""
     try:
         todo = session.query(Todo).filter(Todo.id == todo_id).first()
         if not todo:
             st.error(f"TODO #{todo_id} not found")
             return False
 
+        old_status = todo.status
         todo.status = new_status
         if new_status == "in_progress":
             todo.acknowledged_at = datetime.utcnow()
         elif new_status == "completed":
             todo.completed_at = datetime.utcnow()
 
+        # Create audit event
+        event = TodoEvent(
+            todo_id=todo_id,
+            old_status=old_status,
+            new_status=new_status,
+            source="ui",
+            note=f"Status changed from {old_status} to {new_status}"
+        )
+        session.add(event)
         session.commit()
         return True
 
